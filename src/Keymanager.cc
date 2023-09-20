@@ -18,8 +18,8 @@
 #include "rsa_Crypto.h"
 #include "abe_Crypto.h"
 
-#define CACERT "../tmp/ca.cert"
-#define SERVER_CRT "../tmp/server.cert"
+#define CACERT "../tmp/cacert.pem"
+#define SERVER_CRT "../tmp/servercert.pem"
 #define SERVER_KEY "../tmp/server.pem"
 #define CHK_ERR(err,s) if ((err) == -1) { perror(s); exit(-2); }
 #define SERVER_ADDR "127.0.0.1"
@@ -27,9 +27,9 @@
 #define SERVER_mode 1
 #define CLIENT_mode 0
 
-const char *RSA_private_key = "./prikey.pem";
+const char *RSA_private_key = "../tmp/client.pem";
 
-const char *RSA_public_key = "./pubkey.pem";
+const char *RSA_public_key = "../tmp/clientcert.pem";
 
 using namespace std;
 
@@ -120,8 +120,9 @@ static void* thread_keygenerate(void *arg)
 	unsigned int sign_length;
 	int ret = 0;
 	char *str = NULL;
-	char buf[1025] = {0};
-	const int buf_len=sizeof(buf);
+	char buf[1025]={0}, abe_keybuf[10001]={0};
+    const int buf_len=sizeof(buf);
+    const int abe_keybuf_len=sizeof(abe_keybuf);
 	X509* server_cert = NULL;
 	SSL* ssl = NULL;
     SSL_CTX* ctx = InitSSL((char *)CACERT, (char *)SERVER_CRT, (char *)SERVER_KEY, SERVER_mode);
@@ -187,13 +188,13 @@ static void* thread_keygenerate(void *arg)
 	abe_lock();
 	abe_KeyGen(user);
 	//KeyGen_abe(user);
-	memset(buf,0,1025);
+	memset(abe_keybuf, 0, abe_keybuf_len);
 	cipher = RSA_Encrypt(RSA_public_key, user.user_key);
 	printf ("Got abe_key:\n");
-	for(int i = 0; i < int(cipher.length()); i++)buf[i] = cipher[i];
-	buf[buf_len-1] = cipher.length()/RSA_Decrypt_length;
+	for(int i = 0; i < int(cipher.length()); i++)abe_keybuf[i] = cipher[i];
+	abe_keybuf[abe_keybuf_len-1] = cipher.length()/RSA_Decrypt_length;
 	//abe_ct = RSA_Decrypt(RSA_private_key, cipher);
-    SSL_write (ssl, buf, 1025);//发送abe密钥
+    SSL_write (ssl, abe_keybuf, abe_keybuf_len);//发送abe密钥
 	cout<<"成功发送abe密钥for user:"<<username<<endl;
 
 	//abe与rsa加解密测试，可删

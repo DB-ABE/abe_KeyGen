@@ -24,12 +24,13 @@ string RSA_Encrypt(const string strPemFileName, const string strData)
 	}
 	string strRet;
 	RSA* pRSAPublicKey = RSA_new();
-	if(PEM_read_RSA_PUBKEY(hPubKeyFile, &pRSAPublicKey, 0, 0) == NULL)
-	{
-		assert(false);
-		return "";
-	}
- 
+    // if(PEM_read_RSA_PUBKEY(hPubKeyFile, &pRSAPublicKey, 0, 0) == NULL)
+    // {
+    //         assert(false);
+    //         return 0;
+    // }
+    X509 *cert = PEM_read_X509(hPubKeyFile, nullptr, nullptr, nullptr);
+    pRSAPublicKey = EVP_PKEY_get1_RSA(X509_get_pubkey(cert));
 	int nLen = RSA_size(pRSAPublicKey);
 	char* pEncode = new char[nLen + 1];
     if(strData.length() < RSA_Encrypt_length+1){
@@ -41,7 +42,7 @@ string RSA_Encrypt(const string strPemFileName, const string strData)
     }
     else{
         for(int i = 0; i<(int)strData.length()/RSA_Encrypt_length; i++){
-            string Data=strData.substr(i*RSA_Encrypt_length, (i+1)*RSA_Encrypt_length);
+            string Data=strData.substr(i*RSA_Encrypt_length, RSA_Encrypt_length);
             int ret = RSA_public_encrypt(Data.length(), (const unsigned char*)Data.c_str(), (unsigned char*)pEncode, pRSAPublicKey, RSA_PKCS1_PADDING);
             if (ret >= 0)
             {
@@ -49,7 +50,7 @@ string RSA_Encrypt(const string strPemFileName, const string strData)
             }
         }
         if(strData.length()%RSA_Encrypt_length!=0){
-            string Data=strData.substr((strData.length()/RSA_Encrypt_length)*RSA_Encrypt_length, strData.length());
+            string Data=strData.substr((strData.length()/RSA_Encrypt_length)*RSA_Encrypt_length, strData.length()%RSA_Encrypt_length);
         
             int ret = RSA_public_encrypt(Data.length(), (const unsigned char*)Data.c_str(), (unsigned char*)pEncode, pRSAPublicKey, RSA_PKCS1_PADDING);
             if (ret >= 0){
@@ -147,7 +148,7 @@ string RSA_Decrypt( const string strPemFileName, const string strData )
     }
     else{
         for(int i=0; i<(int)strData.length()/(int)RSA_Decrypt_length; i++){
-            string Data=strData.substr(i*RSA_Decrypt_length, (i+1)*RSA_Decrypt_length);
+            string Data=strData.substr(i*RSA_Decrypt_length, RSA_Decrypt_length);
             int ret = RSA_private_decrypt(Data.length(), (const unsigned char*)Data.c_str(), (unsigned char*)pDecode, pRSAPriKey, RSA_PKCS1_PADDING);
             if (ret >= 0)
             {
@@ -155,7 +156,7 @@ string RSA_Decrypt( const string strPemFileName, const string strData )
             }
         }
         if(strData.length()%RSA_Decrypt_length!=0){
-            string Data=strData.substr((strData.length()/RSA_Decrypt_length)*RSA_Decrypt_length, strData.length());
+            string Data=strData.substr((strData.length()/RSA_Decrypt_length)*RSA_Decrypt_length, strData.length()%strData.length());
             int ret = RSA_private_decrypt(Data.length(), (const unsigned char*)Data.c_str(), (unsigned char*)pDecode, pRSAPriKey, RSA_PKCS1_PADDING);
             if (ret >= 0){
                 strRet += string(pDecode, ret);
@@ -186,13 +187,15 @@ int RSA_Verify( const string strPemFileName, const string strData , const char *
     }
     string strRet;
     RSA* pRSAPublicKey = RSA_new();
-    if(PEM_read_RSA_PUBKEY(hPubKeyFile, &pRSAPublicKey, 0, 0) == NULL)
-    {
-            assert(false);
-            return 0;
-    }
-
+    // if(PEM_read_RSA_PUBKEY(hPubKeyFile, &pRSAPublicKey, 0, 0) == NULL)
+    // {
+    //         assert(false);
+    //         return 0;
+    // }
+    X509 *cert = PEM_read_X509(hPubKeyFile, nullptr, nullptr, nullptr);
+    pRSAPublicKey = EVP_PKEY_get1_RSA(X509_get_pubkey(cert));
     int nLen = RSA_size(pRSAPublicKey);
+
     char* pEncode = new char[nLen + 1];
     unsigned char digest[SHA_length];
     

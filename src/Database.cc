@@ -17,8 +17,8 @@
 #include "rsa_Crypto.h"
 #include "abe_Crypto.h"
 
-#define CACERT "../tmp/ca.cert"
-#define CLIENT_CRT "../tmp/client.cert"
+#define CACERT "../tmp/cacert.pem"
+#define CLIENT_CRT "../tmp/clientcert.pem"
 #define CLIENT_KEY "../tmp/client.pem"
 #define CHK_ERR(err,s) if ((err)==-1) { perror(s); exit(-2); }
 #define SERVER_ADDR "127.0.0.1"
@@ -29,9 +29,10 @@
 #define CLIENT_mode 0
 using namespace std;
 
-const char *RSA_private_key = "./prikey.pem";
 
-const char *RSA_public_key = "./pubkey.pem";
+const char *RSA_private_key = "../tmp/client.pem";
+
+const char *RSA_public_key = "../tmp/clientcert.pem";
 //测试abe密钥，需要保证../abe_key/abe_pp参数
 int abe_test(abe_user user, string ct){
     string pt;
@@ -125,8 +126,9 @@ int mysql_generateABEKey(string username, string attibute){
     SSL* ssl=NULL;
     SSL_CTX* ctx=NULL;
     struct sockaddr_in sa={0};
-    char buf[1025]={0};
+    char buf[1025]={0}, abe_keybuf[10001]={0};
     const int buf_len=sizeof(buf);
+    const int abe_keybuf_len=sizeof(abe_keybuf);
     X509* server_cert=NULL;
     char *str=NULL;
     ctx=InitSSL((char *)CACERT, (char *)CLIENT_CRT, (char *)CLIENT_KEY, CLIENT_mode);
@@ -211,13 +213,12 @@ int mysql_generateABEKey(string username, string attibute){
         SSL_write (ssl, buf, 1025); //发送用户属性注册签名给keymanager
         
         //接收keymananger发来的用户abe密钥
-        memset (buf,0,1024);
-	    SSL_read (ssl, buf, 1025); 
+        memset (abe_keybuf, 0, abe_keybuf_len);
+	    SSL_read (ssl, abe_keybuf, abe_keybuf_len); 
         cout<<"\n接收到abe密钥"<<endl;//接收abe密钥
-
         //abe密钥记录，16进制
-        for (int i = 0; i < buf[buf_len-1]*RSA_Decrypt_length; i++){
-            sprintf(tmp, "%02x", (unsigned char) buf[i]);
+        for (int i = 0; i < abe_keybuf[abe_keybuf_len-1]*RSA_Decrypt_length; i++){
+            sprintf(tmp, "%02x", (unsigned char) abe_keybuf[i]);
             abe_key.append(tmp);
         }
         cout<<abe_key<<endl;
@@ -225,8 +226,8 @@ int mysql_generateABEKey(string username, string attibute){
         //abe密钥测试,可删
         user.user_id = username;
         user.user_attr = attibute;
-        for (int i = 0; i < buf[buf_len-1]*RSA_Decrypt_length; i++){
-            cipher += buf[i];
+        for (int i = 0; i < abe_keybuf[abe_keybuf_len-1]*RSA_Decrypt_length; i++){
+            cipher += abe_keybuf[i];
         }
         // char tmpt[5];
         // for(int i = 0; i<abe_key.length()/2; i++){
