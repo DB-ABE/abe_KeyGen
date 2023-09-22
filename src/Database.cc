@@ -57,6 +57,24 @@ string subreplace(string resource_str, string sub_str, string new_str)
     return dst_str;
 }
 
+void SSL_ReadAll(SSL *ssl, char *buf, size_t buf_len){
+    int i = 0, j = 0;
+    while(buf_len > 0){
+        j = SSL_read(ssl, buf+i, buf_len);
+        i += j; 
+        buf_len -=j;
+    }
+}
+
+void SSL_WriteAll(SSL *ssl, char *buf, size_t buf_len){
+    int i = 0, j = 0;
+    while(buf_len > 0){
+        j = SSL_write(ssl, buf+i, buf_len);
+        i += j; 
+        buf_len -=j;
+    }
+}
+
 SSL_CTX* InitSSL(char *ca_path, char *client_crt_path, char *client_key_path,int mothflag)//与Keymanager重复
 {
     SSL_CTX* ctx=NULL;
@@ -196,8 +214,8 @@ int mysql_generateABEKey(string username, string attibute){
     printf("Begin SSL data exchange\n");
 
     {   //发送用户名和属性
-        SSL_write (ssl, username.c_str(), 1024);
-        SSL_write (ssl, attibute.c_str(), 1024); 
+        SSL_WriteAll (ssl, (char*)username.c_str(), 1024);
+        SSL_WriteAll (ssl, (char*)attibute.c_str(), 1024); 
         memset (buf,0,1025);
 
         //进行用户名和属性的签名
@@ -210,11 +228,11 @@ int mysql_generateABEKey(string username, string attibute){
         }
         cout<<sign_data<<endl;
         buf[buf_len-1] = sign_len/RSA_Decrypt_length;
-        SSL_write (ssl, buf, 1025); //发送用户属性注册签名给keymanager
+        SSL_WriteAll (ssl, buf, 1025); //发送用户属性注册签名给keymanager
         
         //接收keymananger发来的用户abe密钥
         memset (abe_keybuf, 0, abe_keybuf_len);
-	    SSL_read (ssl, abe_keybuf, abe_keybuf_len); 
+	    SSL_ReadAll (ssl, abe_keybuf, abe_keybuf_len); 
         cout<<"\n接收到abe密钥"<<endl;//接收abe密钥
         //abe密钥记录，16进制
         for (int i = 0; i < abe_keybuf[abe_keybuf_len-1]*RSA_Decrypt_length; i++){
@@ -242,7 +260,7 @@ int mysql_generateABEKey(string username, string attibute){
         
         //接收keymanager的abe密钥签名，防止抵赖
         memset (buf,0,1025);
-	    SSL_read (ssl, buf, 1025); 
+	    SSL_ReadAll (ssl, buf, 1025); 
         printf("接收到abe签名信息:\n");//接收abe密钥签名
         for(int i = 0; i < buf[buf_len-1]*RSA_Decrypt_length; i++){
             sprintf(tmp, "%02x", (unsigned char) buf[i]);

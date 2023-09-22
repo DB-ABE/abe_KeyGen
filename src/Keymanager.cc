@@ -52,6 +52,24 @@ void abe_unlock(){
   abe_flag = true;
 }
 
+void SSL_ReadAll(SSL *ssl, char *buf, size_t buf_len){
+    int i = 0, j = 0;
+    while(buf_len > 0){
+        j = SSL_read(ssl, buf+i, buf_len);
+        i += j; 
+        buf_len -=j;
+    }
+}
+
+void SSL_WriteAll(SSL *ssl, char *buf, size_t buf_len){
+    int i = 0, j = 0;
+    while(buf_len > 0){
+        j = SSL_write(ssl, buf+i, buf_len);
+        i += j; 
+        buf_len -=j;
+    }
+}
+
 SSL_CTX* InitSSL(char *ca_path, char *client_crt_path, char *client_key_path, int mothflag)
 {
     SSL_CTX* ctx = NULL;
@@ -159,19 +177,19 @@ static void* thread_keygenerate(void *arg)
 	
 	//接收用户id
 	memset (buf,0,1024);
-	SSL_read (ssl, buf, 1024); 
+	SSL_ReadAll (ssl, buf, 1024); 
 	username.assign(buf);
 	printf ("Got user id:'%s'\n", buf);
 
 	//接收用户属性
 	memset (buf,0,1024);
-	SSL_read (ssl, buf, 1024); 
+	SSL_ReadAll (ssl, buf, 1024); 
 	attibute.assign(buf);
 	printf ("Got user attibute:'%s'\n", buf);
 
 	//接收数据库对该用户的签名
 	memset (buf,0,1025);
-	SSL_read (ssl, buf, 1025); 
+	SSL_ReadAll (ssl, buf, 1025); 
 	printf ("Got signature: of %s\n", username.c_str());
 
 	//对签名进行验证
@@ -194,7 +212,7 @@ static void* thread_keygenerate(void *arg)
 	for(int i = 0; i < int(cipher.length()); i++)abe_keybuf[i] = cipher[i];
 	abe_keybuf[abe_keybuf_len-1] = cipher.length()/RSA_Decrypt_length;
 	//abe_ct = RSA_Decrypt(RSA_private_key, cipher);
-    SSL_write (ssl, abe_keybuf, abe_keybuf_len);//发送abe密钥
+    SSL_WriteAll (ssl, abe_keybuf, abe_keybuf_len);//发送abe密钥
 	cout<<"成功发送abe密钥for user:"<<username<<endl;
 
 	//abe与rsa加解密测试，可删
@@ -208,7 +226,7 @@ static void* thread_keygenerate(void *arg)
 	RSA_Sign(RSA_private_key, cipher.c_str(), buf, sign_length);
 	cout<<"发送abe签名数据:";
 	buf[buf_len-1] = sign_length/RSA_Decrypt_length;
-	SSL_write (ssl, buf, 1025);
+	SSL_WriteAll (ssl, buf, 1025);
 
 	
     /* 收尾工作 */
