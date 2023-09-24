@@ -63,12 +63,14 @@ static void* thread_keygenerate(void *arg)
 	cJSON *key = NULL;
 
 	pthread_socket *ps_sock = (pthread_socket*) arg;
-	string uuid, username, attibute, cipher;
+	string uuid, username, attibute, abe_ct, cipher;
 	abe_user user;
 	unsigned int sign_length;
 	int ret = 0;
 	char *str = NULL;
-	char buf[1024]={0};
+	char buf[1025]={0}, abe_keybuf[10001]={0};
+    const int buf_len=sizeof(buf);
+    const int abe_keybuf_len=sizeof(abe_keybuf);
 	X509* server_cert = NULL;
 	SSL* ssl = NULL;
     SSL_CTX* ctx = InitSSL((char *)CACERT, (char *)SERVER_CRT, (char *)SERVER_KEY, SERVER_mode);
@@ -103,6 +105,25 @@ static void* thread_keygenerate(void *arg)
 	/* 开始密钥生成,用SSL_write,SSL_read代替write,read */
     printf("Begin SSL data exchange\n");
 
+	// //接收用户id
+	// memset (buf,0,1024);
+	// SSL_ReadAll (ssl, buf, 1024); 
+	// username.assign(buf);
+	// printf ("Got user id:'%s'\n", buf);
+
+	// //接收用户属性
+	// memset (buf,0,1024);
+	// SSL_ReadAll (ssl, buf, 1024); 
+	// attibute.assign(buf);
+	// printf ("Got user attibute:'%s'\n", buf);
+
+	// //接收数据库对该用户的签名
+	// memset (buf,0,1025);
+	// SSL_ReadAll (ssl, buf, 1025); 
+	// printf ("Got signature: of %s\n", username.c_str());
+
+	// //对签名进行验证
+	// ret = RSA_Verify(RSA_public_key, username+attibute, buf);
 
 	//begin json transportion
 	SSL_ReadAll (ssl, (char*)json_len_hex, sizeof(json_len_hex)); 
@@ -111,8 +132,7 @@ static void* thread_keygenerate(void *arg)
 	json_str = (char *)malloc(sizeof(char) * json_len);
 	SSL_ReadAll (ssl, json_str, json_len);
 	request = cJSON_Parse(json_str);
-	free(json_str);
-	key = cJSON_GetObjectItem(request, "type");//提取注册类型
+	key = cJSON_GetObjectItem(request, "type");//提取uuid
 	if(key->valueint != 0){
 		cout<<"非用户注册，线程退出"<<endl;
 		cJSON_AddNumberToObject(response, "code", 2);
@@ -125,8 +145,6 @@ static void* thread_keygenerate(void *arg)
         sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
-		free(json_str);
-		data = NULL;
 		goto exit;
 	}
 	key = cJSON_GetObjectItem(request, "uuid");//提取uuid
@@ -164,8 +182,6 @@ static void* thread_keygenerate(void *arg)
         sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
-		free(json_str);
-		data = NULL;
 		goto exit;
 	}
 	printf("验证签名of %s成功!\n", username.c_str());
@@ -183,9 +199,6 @@ static void* thread_keygenerate(void *arg)
         sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
-		free(json_str);
-		data = NULL;
-		goto exit;
 	}
 
 	//abe密钥生成,将密钥长度等信息发送给database
@@ -196,10 +209,27 @@ static void* thread_keygenerate(void *arg)
 	abe_lock();
 	abe_KeyGen(user);
 	//KeyGen_abe(user);
+	memset(abe_keybuf, 0, abe_keybuf_len);
 	if(1)cipher = RSA_Encrypt(RSA_public_key, user.user_key);//如果加密类型为RSA加密
+	printf ("Got abe_key:\n");
+	for(int i = 0; i < int(cipher.length()); i++)abe_keybuf[i] = cipher[i];
+	abe_keybuf[abe_keybuf_len-1] = cipher.length()/RSA_Decrypt_length;
+	//abe_ct = RSA_Decrypt(RSA_private_key, cipher);
+    SSL_WriteAll (ssl, abe_keybuf, abe_keybuf_len);//发送abe密钥
+	cout<<"成功发送abe密钥for user:"<<username<<endl;
+
+	//abe与rsa加解密测试，可删
+	user.user_key = RSA_Decrypt(RSA_private_key, cipher);
+	abe_Encrypt("test", "attr1 and attr2", abe_ct);
+    abe_Decrypt(abe_ct, user, abe_ct);
 	
+
 	//abe密钥签名
+	memset(buf,0,1025);
 	RSA_Sign(RSA_private_key, cipher.c_str(), buf, sign_length);
+	cout<<"发送abe签名数据:";
+	buf[buf_len-1] = sign_length/RSA_Decrypt_length;
+	SSL_WriteAll (ssl, buf, 1025);
 
 	if(1){//RSA加密和签名
 		cout<<"密钥及签名生成完毕, 开始返回响应包"<<endl;
@@ -226,8 +256,6 @@ static void* thread_keygenerate(void *arg)
         sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
-		free(json_str);
-		data = NULL;
 	}
     /* 收尾工作 */
 	SSL_shutdown (ssl);
@@ -236,7 +264,7 @@ static void* thread_keygenerate(void *arg)
 	
 exit:
 	//if(ps_sock)free(ps_sock);
-	key = NULL;
+	if(json_str) free(json_str);
 	if(request) cJSON_Delete(request);
     if(response) cJSON_Delete(response);
 	if(ctx) SSL_CTX_free(ctx);

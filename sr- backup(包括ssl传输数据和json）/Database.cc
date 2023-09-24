@@ -42,10 +42,10 @@ int mysql_generateABEKey(string username, string attibute){
 	cJSON *request = cJSON_CreateObject();
     cJSON *response = cJSON_CreateObject();
     cJSON *key = NULL, *data = NULL;//用来提取json中的字段内容
-    char *json_str = NULL, buf[1024];
+    char *json_str = NULL;
 
     char tmp[3];
-    string uuid, sign_length, cipher, sign_data, sign_data_abe;
+    string uuid, sign_length, abe_ct, abe_pt, cipher, abe_key, sign_data, sign_data_abe;
     uuid.assign("1");
     abe_user user;
     int sd=0, confd=0;
@@ -53,6 +53,9 @@ int mysql_generateABEKey(string username, string attibute){
     SSL* ssl=NULL;
     SSL_CTX* ctx=NULL;
     struct sockaddr_in sa={0};
+    char buf[1025]={0}, abe_keybuf[10001]={0};
+    const int buf_len=sizeof(buf);
+    const int abe_keybuf_len=sizeof(abe_keybuf);
     X509* server_cert=NULL;
     char *str=NULL;
     ctx=InitSSL((char *)CACERT, (char *)CLIENT_CRT, (char *)CLIENT_KEY, CLIENT_mode);
@@ -120,6 +123,10 @@ int mysql_generateABEKey(string username, string attibute){
     printf("Begin SSL data exchange\n");
 
     {   
+        //发送用户名和属性
+        // SSL_WriteAll (ssl, (char*)username.c_str(), 1024);
+        // SSL_WriteAll (ssl, (char*)attibute.c_str(), 1024); 
+        // memset (buf,0,1025);
 
         //进行用户名和属性的签名
         auto ret = RSA_Sign(RSA_private_key, username+attibute, buf, sign_len);
@@ -130,6 +137,8 @@ int mysql_generateABEKey(string username, string attibute){
             sign_data.append(tmp);
         }
         cout<<sign_data<<endl;
+        // buf[buf_len-1] = sign_len/RSA_Decrypt_length;
+        //SSL_WriteAll (ssl, buf, 1025); //发送用户属性注册签名给keymanager
         //发送json
         cJSON_AddNumberToObject(request, "type", 0);
         cJSON_AddStringToObject(request, "uuid", uuid.c_str());
@@ -142,21 +151,59 @@ int mysql_generateABEKey(string username, string attibute){
         sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
-        free(json_str);
 
+        //接收keymananger发来的用户abe密钥
+        memset (abe_keybuf, 0, abe_keybuf_len);
+	    SSL_ReadAll (ssl, abe_keybuf, abe_keybuf_len); 
+        cout<<"\n接收到abe密钥"<<endl;//接收abe密钥
+        //abe密钥记录，16进制
+        for (int i = 0; i < abe_keybuf[abe_keybuf_len-1]*RSA_Decrypt_length; i++){
+            sprintf(tmp, "%02x", (unsigned char) abe_keybuf[i]);
+            abe_key.append(tmp);
+        }
+        cout<<abe_key<<endl;
 
         //abe密钥测试,可删
         user.user_id = username;
         user.user_attr = attibute;
+        for (int i = 0; i < abe_keybuf[abe_keybuf_len-1]*RSA_Decrypt_length; i++){
+            cipher += abe_keybuf[i];
+        }
+        // char tmpt[5];
+        // for(int i = 0; i<abe_key.length()/2; i++){
+        //     sprintf(tmpt, "0x%c%c", abe_key[i*2],abe_key[i*2+1]);
+        //     cipher += char(stoi(tmpt, 0, 16));
+        // }
+        // puts("");
+
+        user.user_key = RSA_Decrypt(RSA_private_key, cipher);//RSA_Decrypt(RSA_private_key,buf)
+        abe_Encrypt(abe_test_message, "attr1 and attr2", abe_ct);
+        abe_Decrypt(abe_ct, user, abe_pt);
+        
+        //接收keymanager的abe密钥签名，防止抵赖
+        memset (buf,0,1025);
+	    SSL_ReadAll (ssl, buf, 1025); 
+        printf("接收到abe签名信息:\n");//接收abe密钥签名
+        for(int i = 0; i < buf[buf_len-1]*RSA_Decrypt_length; i++){
+            sprintf(tmp, "%02x", (unsigned char) buf[i]);
+            sign_data_abe.append(tmp);
+        }
+        cout<<sign_data_abe<<endl;
+        //abe密钥签名认证,可删
+        ret = RSA_Verify(RSA_public_key, cipher.c_str(), buf);
+	    if(ret!=1){
+            cout<<"验签失败，请数据库传输正确的签名数据~~。"<<endl;
+            goto exit;
+	    }
+	    cout<<"验证签名成功"<<endl;
         
         SSL_ReadAll (ssl, (char*)json_len_hex, sizeof(json_len_hex)); 
         json_len = stoi((const char*)json_len_hex, 0, 16);
         cout<<"接收到响应包长度:"<<json_len<<endl;
-
+        //if(json_str)free(json_str);
         json_str = (char *)malloc(sizeof(char) * json_len);
         SSL_ReadAll (ssl, json_str, json_len);
         response = cJSON_Parse(json_str);
-        free(json_str);
         //提取data字段值
         data = cJSON_GetObjectItem(response, "data");
         if (data == NULL || !cJSON_IsObject(data)) {
@@ -182,7 +229,7 @@ int mysql_generateABEKey(string username, string attibute){
         key = cJSON_GetObjectItem(data, "kmsSignatureType");
         if(strcmp(key->valuestring, "RSA") == 0){
             cout<<"获取abe密钥及RSA签名, 进行认证"<<endl;
-            key = cJSON_GetObjectItem(data, "abe_key");//获取abe密钥
+            key = cJSON_GetObjectItem(data, "abe_key");
             string abe_cipher, abe_sign_data;
             char tmpt[5];
             for(int i = 0; i<int(strlen(key->valuestring))/2; i++){
@@ -190,23 +237,23 @@ int mysql_generateABEKey(string username, string attibute){
                 abe_cipher += char(stoi(tmpt, 0, 16));
             }
 
-            key = cJSON_GetObjectItem(data, "kmsSignature");//获取abe签名
+            key = cJSON_GetObjectItem(data, "kmsSignature");
             for(int i = 0; i<int(strlen(key->valuestring))/2; i++){
                 sprintf(tmpt, "0x%c%c", key->valuestring[i*2],key->valuestring[i*2+1]);
                 abe_sign_data += char(stoi(tmpt, 0, 16));
             }
             ret = RSA_Verify(RSA_public_key, abe_cipher.c_str(), abe_sign_data.c_str());
             if(ret!=1){
-                cout<<"验签abe密钥失败, 请数据库传输正确的签名数据~~。"<<endl;
+                cout<<"验签失败，请数据库传输正确的签名数据~~。"<<endl;
                 goto exit;
             }
-            cout<<"验证abe签名成功"<<endl;
+            cout<<"验证签名成功"<<endl;
             
             //abe测试，可删
-            string abe_ct, abe_pt;
-            user.user_key = RSA_Decrypt(RSA_private_key, abe_cipher);
+            user.user_key = RSA_Decrypt(RSA_private_key, abe_cipher);//RSA_Decrypt(RSA_private_key,buf)
             abe_Encrypt(abe_test_message, "attr1 and attr2", abe_ct);
             abe_Decrypt(abe_ct, user, abe_pt);
+
         }
     }
 
@@ -214,9 +261,8 @@ exit:
     /* 收尾工作 */
     SSL_shutdown (ssl);  /* send SSL/TLS close_notify */
     shutdown (sd,2);
-    data = NULL;
-    key = NULL;
     //将两个签名与abe密钥存入数据库，username, attibute, abe_key.c_str(), sign_data，sign_data_user; 
+    if(json_str)free(json_str);
     if(request) cJSON_Delete(request);//同时会把key和data free掉
     if(response) cJSON_Delete(response);
     if(ctx) SSL_CTX_free(ctx);
