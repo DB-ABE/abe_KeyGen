@@ -52,6 +52,15 @@ void abe_unlock(){
   abe_flag = true;
 }
 
+bool check_cert(string cert_pwd){
+	if(access(cert_pwd.c_str(), F_OK) == 0){
+		cout<<"用户的证书存在, 可以继续~~"<<endl;
+		return true;
+	}
+	cout<<"该用户不存在证书"<<endl;
+	return false;
+}
+
 static void* thread_keygenerate(void *arg)
 {
 	char tmpt[5];//用来进行16进制->char类型的转换
@@ -171,7 +180,7 @@ static void* thread_keygenerate(void *arg)
 	printf("验证签名of %s成功!\n", username.c_str());
 
 	//检索是否存在用户证书
-	if(0){//如果不存在
+	if(!check_cert("../tmp/client.pem")){//如果不存在
 		cout<<"用户证书不存在，请提醒用户及时申请证书"<<endl;
 		cJSON_AddNumberToObject(response, "code", 1);
 		cJSON_AddStringToObject(response, "msg", "用户证书不存在，请提醒用户及时申请证书");

@@ -71,7 +71,6 @@ int abe_KeyGen(abe_user &user){
   if(!abe_securitykey){
     cout<<"error opening security pameter-file."<<endl;
     ShutdownOpenABE();
-    
     return 0;
   }
   ifstream abe_publickey("../abe_key/abe_pp", ios::in);

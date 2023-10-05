@@ -171,8 +171,9 @@ int mysql_generateABEKey(string username, string attibute){
         }
         key = cJSON_GetObjectItem(response, "code");
         if(key->valueint != 0){
-            cout<<"error code"<<key->valueint<<endl;
-            key = cJSON_GetObjectItem(request, "msg");
+            cout<<"error code "<<key->valueint<<endl;
+            key = cJSON_GetObjectItem(response, "msg");
+            cout<<"get error message: ";
             cout<<key->valuestring<<endl;
             goto exit;
         }
@@ -221,6 +222,7 @@ exit:
     if(response) cJSON_Delete(response);
     if(ctx) SSL_CTX_free(ctx);
     if(ssl) SSL_free (ssl);
+    cout<<"程序退出"<<endl;
     return 1;
 }
 
