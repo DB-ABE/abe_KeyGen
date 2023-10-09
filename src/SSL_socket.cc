@@ -38,7 +38,7 @@ unsigned char* base64Decode(const char* input, int length, int* outputLength) {
     bio = BIO_push(bio, bmem);
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
 
-    unsigned char* output = (unsigned char*)malloc(length);
+    unsigned char* output = (unsigned char*)malloc(length + 1);
     if (output == NULL) {
         perror("内存分配失败");
         BIO_free_all(bio);
@@ -47,6 +47,7 @@ unsigned char* base64Decode(const char* input, int length, int* outputLength) {
 
     *outputLength = BIO_read(bio, output, length);
     BIO_free_all(bio);
+    output[*outputLength] = '\0';
     return output;
 }
 

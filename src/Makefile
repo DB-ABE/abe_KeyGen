@@ -3,7 +3,7 @@
 CXX := g++
 CXX11FLAGS := -std=c++11
 OS_CXXFLAGS := 
-CXXFLAGS := $(CXX11FLAGS)$(OS_CXXFLAGS) -pthread -Wall -g -O2 -DSSL_LIB_INIT  -I/usr/local/include
+CXXFLAGS := $(CXX11FLAGS)$(OS_CXXFLAGS) -pthread -Wall -g -O2 -DSSL_LIB_INIT  -I/usr/local/include -fsanitize=address
 LDFLAGS :=  -L/usr/local/lib
 LIBS := -lcrypto -lrelic -lrelic_ec -lopenabe -lssl -lmysqlclient -lcjson -ldl
 

@@ -116,8 +116,10 @@ static void* thread_keygenerate(void *arg)
 	SSL_ReadAll (ssl, (char*)json_len_hex, sizeof(json_len_hex)); 
 	json_len = stoi((const char*)json_len_hex, 0, 16);
 	cout<<"接收到请求包长度:"<<json_len<<endl;
-	json_str = (char *)malloc(sizeof(char) * json_len);
+	json_str = (char *)malloc(sizeof(char) * json_len + 1);
 	SSL_ReadAll (ssl, json_str, json_len);
+	json_str[json_len] = '\0';
+	cout<<"json_str:\n"<<json_str<<endl;
 	request = cJSON_Parse(json_str);
 	free(json_str);
 	key = cJSON_GetObjectItem(request, "type");//提取注册类型
@@ -158,6 +160,7 @@ static void* thread_keygenerate(void *arg)
 		cout<<"rsa签名base解码失败"<<endl;
 		goto exit;
 	}
+	base64String[ret] = '\0';
 	user_sign.assign(base64String);
 	free(base64String);
 	base64String = NULL;

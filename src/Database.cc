@@ -125,6 +125,7 @@ int mysql_generateABEKey(string username, string attibute){
         //cout<<"签名数据";
         // //以16进制记录签名数据
         // for(int i = 0; i < (int)sign_len; i++){
+        //     char tmp[3];
         //     sprintf(tmp, "%02x", (unsigned char) buf[i]);
         //     sign_data.append(tmp);
         // }
@@ -161,8 +162,9 @@ int mysql_generateABEKey(string username, string attibute){
         json_len = stoi((const char*)json_len_hex, 0, 16);
         cout<<"接收到响应包长度:"<<json_len<<endl;
 
-        json_str = (char *)malloc(sizeof(char) * json_len);
+        json_str = (char *)malloc(1 + sizeof(char) * json_len);
         SSL_ReadAll (ssl, json_str, json_len);
+        json_str[json_len] = '\0';
         response = cJSON_Parse(json_str);
         free(json_str);
         //提取data字段值

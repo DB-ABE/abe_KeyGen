@@ -94,11 +94,11 @@ int RSA_Sign( const string strPemFileName, string strData, char* pEncode, unsign
     // SHA1_Final(digest, &ctx);
     SHA512((unsigned char *)strData.c_str(), strlen(strData.c_str()), digest);
 
-    char mdString[SHA_length*2];
+    char mdString[SHA_length*2 + 1];
 	for (int i = 0; i < SHA_length; i++)
 	sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
 
-    int ret = RSA_sign(NID_SHA, (unsigned char *)mdString, SHA_length*2 , (unsigned char*)pEncode, &outlen, pRSAPriKey);
+    int ret = RSA_sign(NID_SHA, (const unsigned char *)mdString,  SHA_length * 2, (unsigned char*)pEncode, &outlen, pRSAPriKey);
     if (ret >= 0)
     {   
         cout << "singed successfully!"<< endl;
@@ -202,12 +202,12 @@ int RSA_Verify( const string strPemFileName, const string strData , const char *
     // SHA_CTX ctx = SHA_init(strData);
 	// SHA1_Final(digest, &ctx);
     SHA512((unsigned char *)strData.c_str(), strlen(strData.c_str()), digest);
-    char mdString[SHA_length*2];
+    char mdString[SHA_length*2 + 1];
 	for (int i = 0; i < SHA_length; i++)
 	sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
 
 
-    int ret = RSA_verify(NID_SHA, (const unsigned char*)mdString, SHA_length*2,  (const unsigned char*)sign_data, nLen,  pRSAPublicKey);
+    int ret = RSA_verify(NID_SHA, (const unsigned char*)mdString, SHA_length * 2,  (const unsigned char*)sign_data, nLen,  pRSAPublicKey);
     if(ret != 1){
         cout << "verify error\n";
         unsigned long ulErr = ERR_get_error();
