@@ -63,16 +63,15 @@ bool check_cert(string cert_pwd){
 
 static void* thread_keygenerate(void *arg)
 {
-	char tmpt[5];//用来进行16进制->char类型的转换
-	unsigned char json_len_hex[16]="0";
+	pthread_socket *ps_sock = (pthread_socket*) arg;
+	unsigned char json_len_hex[5] = "0";
 	int json_len;
 	cJSON *request = cJSON_CreateObject();
 	cJSON *response = cJSON_CreateObject();
 	char *json_str = NULL;
 	cJSON *key = NULL;
-
-	pthread_socket *ps_sock = (pthread_socket*) arg;
-	string uuid, username, attibute, cipher;
+	char *base64String = NULL;
+	string uuid, user_sign, username, attibute, cipher;
 	abe_user user;
 	unsigned int sign_length;
 	int ret = 0;
@@ -131,7 +130,7 @@ static void* thread_keygenerate(void *arg)
 		cJSON_AddItemToObject(response, "data", data);
 		json_str = cJSON_Print(response);
         cout<<"响应包长度:"<<strlen(json_str)<<endl;
-        sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
+        sprintf((char *)json_len_hex, "%04x", int(strlen(json_str)));
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
 		free(json_str);
@@ -149,18 +148,26 @@ static void* thread_keygenerate(void *arg)
 	cout<<"attribute_json: "<<key->valuestring<<endl;
 	key = cJSON_GetObjectItem(request, "dbSignature");
 	printf ("Got signature: of %s\n", username.c_str());//提取并转换签名信息
-	for(int i = 0; i < int(strlen(key->valuestring)/2); i++){
-		sprintf(tmpt, "0x%c%c", key->valuestring[i*2], key->valuestring[i*2+1]);
-		cipher += char(stoi(tmpt, 0, 16));
+	// for(int i = 0; i < int(strlen(key->valuestring)/2); i++){
+	//	char tmpt[5];
+	// 	sprintf(tmpt, "0x%c%c", key->valuestring[i*2], key->valuestring[i*2+1]);
+	// 	cipher += char(stoi(tmpt, 0, 16));
+	// }
+	base64String = (char *)base64Decode(key->valuestring, strlen(key->valuestring), &ret);
+	if (base64String == NULL) {
+		cout<<"rsa签名base解码失败"<<endl;
+		goto exit;
 	}
+	user_sign.assign(base64String);
+	free(base64String);
+	base64String = NULL;
 	key = cJSON_GetObjectItem(request, "dbSignatureType");//提取签名类型
 
 	//进行RSA签名的认证
 	if(strcmp(key->valuestring, "RSA") == 0){//如果签名类型是RSA
 		cout<<"签名类型: RSA"<<endl;
-		ret = RSA_Verify(RSA_public_key, username+attibute, cipher.c_str());
+		ret = RSA_Verify(RSA_public_key, username+attibute, user_sign.c_str());
 	}
-
 	if(ret != 1){
 		cout<<"验签失败，请数据库传输正确的签名数据~~。"<<endl;
 		cJSON_AddNumberToObject(response, "code", 2);
@@ -170,7 +177,7 @@ static void* thread_keygenerate(void *arg)
 		cJSON_AddItemToObject(response, "data", data);
 		json_str = cJSON_Print(response);
         cout<<"响应包长度:"<<strlen(json_str)<<endl;
-        sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
+        sprintf((char *)json_len_hex, "%04x", int(strlen(json_str)));
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
 		free(json_str);
@@ -189,7 +196,7 @@ static void* thread_keygenerate(void *arg)
 		cJSON_AddItemToObject(response, "data", data);
 		json_str = cJSON_Print(response);
         cout<<"响应包长度:"<<strlen(json_str)<<endl;
-        sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
+        sprintf((char *)json_len_hex, "%04x", int(strlen(json_str)));
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
 		free(json_str);
@@ -208,31 +215,51 @@ static void* thread_keygenerate(void *arg)
 	if(1)cipher = RSA_Encrypt(RSA_public_key, user.user_key);//如果加密类型为RSA加密
 	
 	//abe密钥签名
-	RSA_Sign(RSA_private_key, cipher.c_str(), buf, sign_length);
+	RSA_Sign(RSA_private_key, cipher, buf, sign_length);
 
 	if(1){//RSA加密和签名
 		cout<<"密钥及签名生成完毕, 开始返回响应包"<<endl;
 		cJSON *data = cJSON_CreateObject();
 		cJSON_AddStringToObject(data, "uuid", uuid.c_str());
-		char tmp[3];
 		string abe_key, sign_data;
-		for(int i = 0; i < int(cipher.length()); i++){
-			sprintf(tmp, "%02x", (unsigned char) cipher[i]);
-            abe_key.append(tmp);
-		}
-		cJSON_AddStringToObject(data, "abe_key", abe_key.c_str());
-        for(int i = 0; i < int(sign_length); i++){
-            sprintf(tmp, "%02x", (unsigned char) buf[i]);
-            sign_data.append(tmp);
+
+		// for(int i = 0; i < int(cipher.length()); i++){
+		//	char tmp[3];
+		// 	sprintf(tmp, "%02x", (unsigned char) cipher[i]);
+        //     abe_key.append(tmp);
+		// }
+
+		base64String = base64Encode((const unsigned char*)cipher.c_str(), cipher.length());
+        if (base64String == NULL) {
+            cout<<"abe_key base编码失败"<<endl;
+            goto exit;
+        }
+		abe_key.assign(base64String);
+		cJSON_AddStringToObject(data, "abe_key", base64String);
+		free(base64String);
+		base64String = NULL;
+
+        // for(int i = 0; i < int(sign_length); i++){
+		//		char tmp[3];
+        //     sprintf(tmp, "%02x", (unsigned char) buf[i]);
+        //     sign_data.append(tmp);
+        // }
+		
+		base64String = base64Encode((const unsigned char*)buf, sign_length);
+        if (base64String == NULL) {
+            cout<<"abe_sign base编码失败"<<endl;
+            goto exit;
         }
 		cJSON_AddStringToObject(data, "kmsSignatureType", "RSA");
-		cJSON_AddStringToObject(data, "kmsSignature", sign_data.c_str());
+		cJSON_AddStringToObject(data, "kmsSignature", base64String);
 		cJSON_AddItemToObject(response, "data", data);
-		
+		 free(base64String);
+		 base64String = NULL;
 		//发送响应包
 		json_str = cJSON_Print(response);
         cout<<"响应包长度:"<<strlen(json_str)<<endl;
-        sprintf((char *)json_len_hex, "%x", int(strlen(json_str)));
+        sprintf((char *)json_len_hex, "%04x", int(strlen(json_str)));
+		cout<<json_len_hex<<endl;
         SSL_WriteAll (ssl, (char*)json_len_hex, sizeof(json_len_hex));
         SSL_WriteAll (ssl, json_str, strlen(json_str));
 		free(json_str);

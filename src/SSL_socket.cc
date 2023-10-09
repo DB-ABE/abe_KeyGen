@@ -1,4 +1,55 @@
 #include "SSL_socket.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <openssl/bio.h>
+#include <openssl/evp.h>
+#include <string.h>
+
+// 将字符串转换为Base64编码
+char* base64Encode(const unsigned char* input, int length) {
+    BIO* bio = BIO_new(BIO_f_base64());
+    BIO* bmem = BIO_new(BIO_s_mem());
+    bio = BIO_push(bio, bmem);
+    BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+    BIO_write(bio, input, length);
+    BIO_flush(bio);
+
+    char* base64Data;
+    long base64Length = BIO_get_mem_data(bmem, &base64Data);
+
+    char* base64String = (char*)malloc(base64Length + 1);
+    if (base64String == NULL) {
+        perror("内存分配失败");
+        BIO_free_all(bio);
+        return NULL;
+    }
+
+    memcpy(base64String, base64Data, base64Length);
+    base64String[base64Length] = '\0';
+
+    BIO_free_all(bio);
+    return base64String;
+}
+
+//将base64转换为字符串
+unsigned char* base64Decode(const char* input, int length, int* outputLength) {
+    BIO* bio = BIO_new(BIO_f_base64());
+    BIO* bmem = BIO_new_mem_buf(input, length);
+    bio = BIO_push(bio, bmem);
+    BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
+
+    unsigned char* output = (unsigned char*)malloc(length);
+    if (output == NULL) {
+        perror("内存分配失败");
+        BIO_free_all(bio);
+        return NULL;
+    }
+
+    *outputLength = BIO_read(bio, output, length);
+    BIO_free_all(bio);
+    return output;
+}
+
 string subreplace(string resource_str, string sub_str, string new_str)
 {
     string dst_str = resource_str;
@@ -28,7 +79,7 @@ void SSL_WriteAll(SSL *ssl, char *buf, size_t buf_len){
     }
 }
 
-SSL_CTX* InitSSL(char *ca_path, char *client_crt_path, char *client_key_path,int mothflag)//与Keymanager重复
+SSL_CTX* InitSSL(char *ca_path, char *client_crt_path, char *client_key_path, int mothflag)//与Keymanager重复
 {
     SSL_CTX* ctx=NULL;
     SSL_METHOD *meth;

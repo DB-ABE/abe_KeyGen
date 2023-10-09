@@ -196,7 +196,7 @@ int RSA_Verify( const string strPemFileName, const string strData , const char *
     pRSAPublicKey = EVP_PKEY_get1_RSA(X509_get_pubkey(cert));
     int nLen = RSA_size(pRSAPublicKey);
 
-    char* pEncode = new char[nLen + 1];
+    //char* pEncode = new char[nLen + 1];
     unsigned char digest[SHA_length];
     
     // SHA_CTX ctx = SHA_init(strData);
@@ -219,7 +219,7 @@ int RSA_Verify( const string strPemFileName, const string strData , const char *
     }
     else
         cout << "verify success\n";
-    delete[] pEncode;
+    //delete[] pEncode;
     RSA_free(pRSAPublicKey);
     fclose(hPubKeyFile);
     CRYPTO_cleanup_all_ex_data();
