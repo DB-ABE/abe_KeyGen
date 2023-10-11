@@ -14,6 +14,7 @@
 
 #define SERVER_ADDR "127.0.0.1"
 #define PORT 20000
+using namespace std;
 
 int cert_generate(const char *country, const char *Organization, const char *Common_Name){
     int confd=0;
@@ -56,14 +57,13 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     }
     // 设置证书请求版本
     X509_REQ_set_version(req, 0);
-
     // 设置证书请求持有者信息
     X509_NAME* name = X509_NAME_new();
     X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (unsigned char*)country, -1, -1, 0);
     X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, (unsigned char*)Organization, -1, -1, 0);
     X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char*)Common_Name, -1, -1, 0);
     X509_REQ_set_subject_name(req, name);
-
+    X509_NAME_free(name);
     // 设置证书请求公钥
     EVP_PKEY* pkey = EVP_PKEY_new();
     EVP_PKEY_assign_RSA(pkey, rsa);
@@ -72,26 +72,23 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     // 签名证书请求
     if (!X509_REQ_sign(req, pkey, EVP_sha512())) {
         perror("证书请求签名失败");
-        X509_REQ_free(req);
         RSA_free(rsa);
         EVP_PKEY_free(pkey);
         return 1;
     }
-    RSA_free(rsa);
     EVP_PKEY_free(pkey);
+    
 
     // 导出为字符类型
     BIO *bio = BIO_new(BIO_s_mem());
     if (!bio) {
         fprintf(stderr, "无法创建BIO对象\n");
-        X509_REQ_free(req);
         return 1;
     }
 
     if (PEM_write_bio_X509_REQ(bio, req) == 0) {
         fprintf(stderr, "无法导出证书请求\n");
         BIO_free(bio);
-        X509_REQ_free(req);
         return 1;
     }
 
@@ -100,7 +97,6 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     if (csrDataLen <= 0) {
         fprintf(stderr, "无法获取导出的证书请求数据\n");
         BIO_free(bio);
-        X509_REQ_free(req);
         return 1;
     }
     char *DataString = (char *) malloc(1 + sizeof(char) * csrDataLen);
@@ -109,14 +105,15 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     printf("导出的证书请求数据:\n%s\n", DataString);
     //free(csrData);
     BIO_free(bio);
-    //X509_REQ_free(req);
+    X509_REQ_free(req);
     puts("here");
 
     BIO *bio_req = BIO_new(BIO_s_mem());
     BIO_puts(bio_req, DataString);
     free(DataString);
+    DataString = NULL;
     X509_REQ *req_new = PEM_read_bio_X509_REQ(bio_req, NULL, NULL, NULL);
-    //BIO_free(bio_req);
+    BIO_free(bio_req);
 
     if (req_new == NULL) {
         fprintf(stderr, "无法解析证书请求\n");
@@ -158,7 +155,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     // 设置证书有效期
     X509_gmtime_adj(X509_get_notBefore(cert), 0);
     X509_gmtime_adj(X509_get_notAfter(cert), 31536000L); // 有效期为1年
-
+    
     // 设置证书主题
     X509_set_subject_name(cert, X509_REQ_get_subject_name(req_new));
 
@@ -166,7 +163,9 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     X509_set_issuer_name(cert, X509_REQ_get_subject_name(req_new));
     
     // 设置证书公钥
-    X509_set_pubkey(cert, X509_REQ_get_pubkey(req_new));
+    EVP_PKEY *pkey_req = X509_REQ_get_pubkey(req_new);
+    X509_set_pubkey(cert, pkey_req);
+    EVP_PKEY_free(pkey_req);
 
     // 签名证书
     if (!X509_sign(cert, caKey, EVP_sha512())) {
@@ -178,13 +177,47 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     }
     X509_REQ_free(req_new);
     EVP_PKEY_free(caKey);
+
+    //获取证书主题
+    X509_NAME* subject = X509_get_subject_name(cert);
+    // 查找 Common Name (CN) 字段
+    int cnIndex = X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
+    if (cnIndex < 0) {
+        // 处理未找到 CN 字段的情况
+        return 1;
+    }
+
+    // 获取 CN 字段的值
+    X509_NAME_ENTRY* entry = X509_NAME_get_entry(subject, cnIndex);
+    ASN1_STRING* cnData = X509_NAME_ENTRY_get_data(entry);
+
+    if (cnData == NULL) {
+        // 处理获取 CN 值失败的情况
+        return 1;
+    }
+    // 将 CN 字段的值转换为 C 字符串
+    char* cnStr = (char*)ASN1_STRING_data(cnData);
+    if (cnStr == NULL) {
+        // 处理转换失败的情况
+        return 1;
+    }
+    char *suffix = (char *)malloc(5 + strlen(cnStr) * sizeof(char));
+    sprintf(suffix, "%s.pem", cnStr);
     // 将证书保存到文件
-    FILE *certFile = fopen("generated_certificate.crt", "wb");
+    FILE *certFile = fopen(suffix, "wb");
     if (!certFile) {
         fprintf(stderr, "无法打开证书文件\n");
         X509_free(cert);
         return 1;
     }
+    free(suffix);
+
+    if (PEM_write_X509(certFile, cert) != 1) {
+        // 处理写入失败的情况
+        fclose(certFile);
+        return 1;
+    }
+    fclose(certFile);
 
     // 将证书转换为字符串
     BIO* bio_cert = BIO_new(BIO_s_mem());
@@ -208,15 +241,35 @@ int cert_generate(const char *country, const char *Organization, const char *Com
         BIO_free(bio_cert);
         return 1;
     }
-    DataString = (char *)malloc(1 + sizeof(char) * certSize);
-    sprintf(DataString, "%.*s", certSize, certStr);
+    char *DataString_new = (char *)malloc(1 + sizeof(char) * certSize);
+    sprintf(DataString_new, "%.*s", certSize, certStr);
     // 打印证书字符串
-    printf("证书字符串：\n%s\n", DataString);
-
-    free(DataString);
-    // 清理资源
+    printf("证书字符串：\n%s\n", DataString_new);
+    
+    BIO* bio_certString = BIO_new_mem_buf(DataString_new, -1);
+    if (bio_certString == NULL) {
+        // 处理加载失败的情况
+        free(DataString_new);
+        return 1;
+    }
+    
+    // 从内存中读取 X.509 证书
+    X509* cert_new = PEM_read_bio_X509(bio_certString, NULL, NULL, NULL);
+    if (cert_new == NULL) {
+        // 处理读取失败的情况
+        cout<<"证书生成失败,程序退出"<<endl;
+    }
+    else cout<<"证书生成成功,程序退出"<<endl;
+    free(DataString_new);
+    // 释放 BIO 对象
+    BIO_free(bio_certString);
     BIO_free(bio_cert);
+    // 清理证书对象
+    if(cert_new)X509_free(cert_new);
+    
 
+
+    // 清理资源
     return 0;
 }
 int main(){

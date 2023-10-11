@@ -17,8 +17,8 @@ struct pthread_socket
 };
 static void* thread_certgenerate(void *arg){
     pthread_socket *ps_sock = (pthread_socket*) arg;
+    cout<<"successfully connection! for socket:"<<ps_sock->socket_d<<endl;
 
-    cout<<"successfully connection!"<<endl;
 }
 int sock_init(int port = 20000){
     int listen_sock;
