@@ -28,10 +28,11 @@
 #define SERVER_mode 1
 #define CLIENT_mode 0
 
-const char *RSA_private_key = "../tmp/client.pem";
+const char *RSA_private_key = "../tmp/server.pem";
 
-const char *RSA_public_key = "../tmp/clientcert.pem";
+const char *RSA_public_key = "../tmp/servercert.pem";
 
+const char *RSA_ver_key = "../tmp/clientcert.pem";
 using namespace std;
 
 struct pthread_socket
@@ -66,7 +67,7 @@ static void* thread_keygenerate(void *arg)
 	pthread_socket *ps_sock = (pthread_socket*) arg;
 	unsigned char json_len_hex[5] = "0";
 	int json_len;
-	cJSON *request = cJSON_CreateObject();
+	cJSON *request = NULL;
 	cJSON *response = cJSON_CreateObject();
 	char *json_str = NULL;
 	cJSON *key = NULL;
@@ -169,7 +170,7 @@ static void* thread_keygenerate(void *arg)
 	//进行RSA签名的认证
 	if(strcmp(key->valuestring, "RSA") == 0){//如果签名类型是RSA
 		cout<<"签名类型: RSA"<<endl;
-		ret = RSA_Verify(RSA_public_key, username+attibute, user_sign.c_str());
+		ret = RSA_Verify(RSA_ver_key, username+attibute, user_sign.c_str());
 	}
 	if(ret != 1){
 		cout<<"验签失败，请数据库传输正确的签名数据~~。"<<endl;
@@ -215,7 +216,7 @@ static void* thread_keygenerate(void *arg)
 	abe_lock();
 	abe_KeyGen(user);
 	//KeyGen_abe(user);
-	if(1)cipher = RSA_Encrypt(RSA_public_key, user.user_key);//如果加密类型为RSA加密
+	if(1)cipher = RSA_Encrypt(RSA_ver_key, user.user_key);//如果加密类型为RSA加密
 	
 	//abe密钥签名
 	RSA_Sign(RSA_private_key, cipher, buf, sign_length);
@@ -270,6 +271,8 @@ static void* thread_keygenerate(void *arg)
 	}
     /* 收尾工作 */
 	SSL_shutdown (ssl);
+	SSL_free (ssl);
+	ssl = NULL;
     shutdown (ps_sock->socket_d,2);
 	abe_unlock();
 	
@@ -279,7 +282,10 @@ exit:
 	if(request) cJSON_Delete(request);
     if(response) cJSON_Delete(response);
 	if(ctx) SSL_CTX_free(ctx);
-    if(ssl) SSL_free (ssl);
+    if(ssl) {
+        SSL_shutdown (ssl);
+        SSL_free (ssl);
+    }  /* send SSL/TLS close_notify */
 	return &abe_flag;
 }
 

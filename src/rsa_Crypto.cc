@@ -23,14 +23,11 @@ string RSA_Encrypt(const string strPemFileName, const string strData)
 		return ""; 
 	}
 	string strRet;
-	RSA* pRSAPublicKey = RSA_new();
-    // if(PEM_read_RSA_PUBKEY(hPubKeyFile, &pRSAPublicKey, 0, 0) == NULL)
-    // {
-    //         assert(false);
-    //         return 0;
-    // }
     X509 *cert = PEM_read_X509(hPubKeyFile, nullptr, nullptr, nullptr);
-    pRSAPublicKey = EVP_PKEY_get1_RSA(X509_get_pubkey(cert));
+    EVP_PKEY *evp_key = X509_get_pubkey(cert);
+    RSA* pRSAPublicKey = EVP_PKEY_get1_RSA(evp_key);
+    EVP_PKEY_free(evp_key);
+    X509_free(cert);
 	int nLen = RSA_size(pRSAPublicKey);
 	char* pEncode = new char[nLen + 1];
     if(strData.length() < RSA_Encrypt_length+1){
@@ -59,7 +56,9 @@ string RSA_Encrypt(const string strPemFileName, const string strData)
         }
     }
 	delete[] pEncode;
+    X509_free(cert);
 	RSA_free(pRSAPublicKey);
+    //if(evp_key) EVP_PKEY_free(evp_key);;
 	fclose(hPubKeyFile);
 	CRYPTO_cleanup_all_ex_data(); 
 	return strRet;
@@ -185,27 +184,22 @@ int RSA_Verify( const string strPemFileName, const string strData , const char *
             assert(false);
             return 0;
     }
-    string strRet;
-    RSA* pRSAPublicKey = RSA_new();
-    // if(PEM_read_RSA_PUBKEY(hPubKeyFile, &pRSAPublicKey, 0, 0) == NULL)
-    // {
-    //         assert(false);
-    //         return 0;
-    // }
+    
     X509 *cert = PEM_read_X509(hPubKeyFile, nullptr, nullptr, nullptr);
-    pRSAPublicKey = EVP_PKEY_get1_RSA(X509_get_pubkey(cert));
+    EVP_PKEY *evp_key = X509_get_pubkey(cert);
+    RSA* pRSAPublicKey = EVP_PKEY_get1_RSA(evp_key);
+    EVP_PKEY_free(evp_key);
+    X509_free(cert);
     int nLen = RSA_size(pRSAPublicKey);
-
     //char* pEncode = new char[nLen + 1];
     unsigned char digest[SHA_length];
     
     // SHA_CTX ctx = SHA_init(strData);
 	// SHA1_Final(digest, &ctx);
-    SHA512((unsigned char *)strData.c_str(), strlen(strData.c_str()), digest);
+    SHA512((const unsigned char *)strData.c_str(), strlen(strData.c_str()), digest);
     char mdString[SHA_length*2 + 1];
 	for (int i = 0; i < SHA_length; i++)
 	sprintf(&mdString[i*2], "%02x", (unsigned int)digest[i]);
-
 
     int ret = RSA_verify(NID_SHA, (const unsigned char*)mdString, SHA_length * 2,  (const unsigned char*)sign_data, nLen,  pRSAPublicKey);
     if(ret != 1){
@@ -215,12 +209,18 @@ int RSA_Verify( const string strPemFileName, const string strData , const char *
         cout << "error number:" << ulErr << endl; 
         ERR_error_string(ulErr,szErrMsg); // 格式：error:errId:库:函数:原因  
         cout << szErrMsg << endl;
+        //delete[] pEncode;
+        RSA_free(pRSAPublicKey);
+        //if(evp_key) EVP_PKEY_free(evp_key);
+        fclose(hPubKeyFile);
+        CRYPTO_cleanup_all_ex_data();
         return -1;
     }
     else
         cout << "verify success\n";
     //delete[] pEncode;
     RSA_free(pRSAPublicKey);
+    //if(evp_key) EVP_PKEY_free(evp_key);
     fclose(hPubKeyFile);
     CRYPTO_cleanup_all_ex_data();
     return 1;

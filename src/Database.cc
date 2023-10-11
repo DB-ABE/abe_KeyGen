@@ -33,6 +33,8 @@ using namespace std;
 const char *RSA_private_key = "../tmp/client.pem";
 
 const char *RSA_public_key = "../tmp/clientcert.pem";
+
+const char *RSA_ver_key = "../tmp/servercert.pem";
 //测试abe密钥，需要保证../abe_key/abe_pp参数
 
 
@@ -40,7 +42,7 @@ int mysql_generateABEKey(string username, string attibute){
     unsigned char json_len_hex[5] = "0";
     int json_len;
 	cJSON *request = cJSON_CreateObject();
-    cJSON *response = cJSON_CreateObject();
+    cJSON *response = NULL;
     cJSON *key = NULL, *data = NULL;//用来提取json中的字段内容
     char *json_str = NULL, buf[1024];
     char* base64String = NULL;
@@ -55,7 +57,7 @@ int mysql_generateABEKey(string username, string attibute){
     X509* server_cert=NULL;
     char *str=NULL;
     ctx=InitSSL((char *)CACERT, (char *)CLIENT_CRT, (char *)CLIENT_KEY, CLIENT_mode);
-    if(ctx==NULL) return -1;
+    if(ctx==NULL) goto exit;
     /* 指定加密器类型 */
     SSL_CTX_set_cipher_list (ctx, "ECDHE-RSA-AES256-SHA");
     SSL_CTX_set_mode (ctx, SSL_MODE_AUTO_RETRY);
@@ -101,7 +103,6 @@ int mysql_generateABEKey(string username, string attibute){
     /*打印所有加密算法的信息(可选)*/
     printf ("SSL connection using %s\n", SSL_get_cipher (ssl));
     /*得到服务端的证书并打印些信息(可选) */
-    SSL_get_peer_certificate(ssl);
     server_cert = SSL_get_peer_certificate (ssl);      
     printf ("Keymanager certificate:\n");
 
@@ -119,7 +120,6 @@ int mysql_generateABEKey(string username, string attibute){
     printf("Begin SSL data exchange\n");
 
     {   
-
         //进行用户名和属性的签名
         auto ret = RSA_Sign(RSA_private_key, username+attibute, buf, sign_len);
         //cout<<"签名数据";
@@ -153,7 +153,7 @@ int mysql_generateABEKey(string username, string attibute){
         free(json_str);
         free(base64String);
         base64String = NULL;
-
+        
         //abe密钥测试,可删
         user.user_id = username;
         user.user_attr = attibute;
@@ -161,12 +161,13 @@ int mysql_generateABEKey(string username, string attibute){
         SSL_ReadAll (ssl, (char*)json_len_hex, sizeof(json_len_hex)); 
         json_len = stoi((const char*)json_len_hex, 0, 16);
         cout<<"接收到响应包长度:"<<json_len<<endl;
-
+        
         json_str = (char *)malloc(1 + sizeof(char) * json_len);
         SSL_ReadAll (ssl, json_str, json_len);
         json_str[json_len] = '\0';
-        response = cJSON_Parse(json_str);
+        response = cJSON_Parse((const char *)json_str);
         free(json_str);
+        
         //提取data字段值
         data = cJSON_GetObjectItem(response, "data");
         if (data == NULL || !cJSON_IsObject(data)) {
@@ -207,27 +208,29 @@ int mysql_generateABEKey(string username, string attibute){
                 cout<<"abe_key_cipher base解码失败"<<endl;
                 goto exit;
             }
+
             for(int i=0; i < ret; i++){
 			    abe_cipher += base64String[i];
 		    }
             free(base64String);
             base64String = NULL;
             key = cJSON_GetObjectItem(data, "kmsSignature");//获取abe签名
-
+            
             // for(int i = 0; i<int(strlen(key->valuestring))/2; i++){
             //     sprintf(tmpt, "0x%c%c", key->valuestring[i*2],key->valuestring[i*2+1]);
             //     abe_sign_data += char(stoi(tmpt, 0, 16));
             // }
-
+            
             base64String = (char *)base64Decode(key->valuestring, strlen(key->valuestring), &ret);
             if (base64String == NULL) {
                 cout<<"abe_key_sign base解码失败"<<endl;
                 goto exit;
             }
+            
             for(int i=0; i < ret; i++){
 			    abe_sign_data += base64String[i];
 		    }
-            ret = RSA_Verify(RSA_public_key, abe_cipher, abe_sign_data.c_str());
+            ret = RSA_Verify(RSA_ver_key, abe_cipher, abe_sign_data.c_str());
             if(ret!=1){
                 cout<<"验签abe密钥失败, 请数据库传输正确的签名数据~~。"<<endl;
                 goto exit;
@@ -235,7 +238,6 @@ int mysql_generateABEKey(string username, string attibute){
             cout<<"验证abe签名成功"<<endl;
             free(base64String);
             base64String = NULL;
-            
             //abe测试，可删
             string abe_ct, abe_pt;
             user.user_key = RSA_Decrypt(RSA_private_key, abe_cipher);
@@ -246,7 +248,10 @@ int mysql_generateABEKey(string username, string attibute){
 
 exit:
     /* 收尾工作 */
-    SSL_shutdown (ssl);  /* send SSL/TLS close_notify */
+    if(ssl) {
+        SSL_shutdown (ssl);
+        SSL_free (ssl);
+    }  /* send SSL/TLS close_notify */
     shutdown (sd,2);
     data = NULL;
     key = NULL;
@@ -254,7 +259,6 @@ exit:
     if(request) cJSON_Delete(request);//同时会把key和data free掉
     if(response) cJSON_Delete(response);
     if(ctx) SSL_CTX_free(ctx);
-    if(ssl) SSL_free (ssl);
     cout<<"程序退出"<<endl;
     return 1;
 }

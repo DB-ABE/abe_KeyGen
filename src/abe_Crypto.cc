@@ -77,7 +77,6 @@ int abe_KeyGen(abe_user &user){
   if(!abe_publickey){
     cout<<"error opening public key-file."<<endl;
     ShutdownOpenABE();
-    
     return 0;
   }
   // ifstream abe_globalpameter("abe_gp", ios::in);
@@ -93,18 +92,17 @@ int abe_KeyGen(abe_user &user){
   abe_publickey.close();
   // abe_globalpameter.close();
 
-  cpabe.importPublicParams(abe_pp);
+  cpabe.importPublicParams((const string)abe_pp);
  
-  cpabe.importSecretParams(abe_sk);
+  cpabe.importSecretParams((const string)abe_sk);
   //cpabe.importGlobalParams(abe_gp);
-  cpabe.keygen(user.user_attr.c_str(), user.user_id.c_str());
-  cpabe.exportUserKey(user.user_id.c_str(), user.user_key);
+  cpabe.keygen((const string)user.user_attr, (const string)user.user_id);
+  cpabe.exportUserKey((const string)user.user_id, user.user_key);
   // string policy="attr1 and attr2", pt="Hello world!", ct;
   // cpabe.encrypt(policy.c_str(), pt, ct);
   // cpabe.decrypt(user.user_id.c_str(), ct, pt);
   // cout << "Recovered message: " << pt << endl;
   ShutdownOpenABE();
-  
   cout<<"generate key for "<<user.user_id<<endl;
   return 1;
 }
@@ -118,13 +116,12 @@ int abe_Encrypt(string pt, string policy, string &ct){
   if(!abe_publickey){
     cout<<"error opening public key-file."<<endl;
     ShutdownOpenABE();
-    
     return 0;
   }
   abe_publickey>>abe_pp;
   abe_publickey.close();
-  cpabe.importPublicParams(abe_pp);
-  cpabe.encrypt(policy.c_str(), pt, ct);
+  cpabe.importPublicParams((const string) abe_pp);
+  cpabe.encrypt(policy, (const string)pt, ct);
   ShutdownOpenABE();
   
   cout<<"encrypt succefully!"<<endl;
@@ -145,9 +142,9 @@ int abe_Decrypt(string ct, abe_user user, string &pt){
   }
   abe_publickey>>abe_pp;
   abe_publickey.close();
-  cpabe.importPublicParams(abe_pp);
-  cpabe.importUserKey(user.user_id.c_str(), user.user_key);
-  cpabe.decrypt(user.user_id.c_str(), ct, pt);
+  cpabe.importPublicParams((const string)abe_pp);
+  cpabe.importUserKey((const string)user.user_id, (const string)user.user_key);
+  cpabe.decrypt((const string)user.user_id, (const string)ct, pt);
   cout << "Recovered message: " << pt << endl;
   ShutdownOpenABE();
   
