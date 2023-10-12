@@ -285,6 +285,7 @@ exit:
     if(ssl) {
         SSL_shutdown (ssl);
         SSL_free (ssl);
+		shutdown (ps_sock->socket_d,2);
     }  /* send SSL/TLS close_notify */
 	return &abe_flag;
 }

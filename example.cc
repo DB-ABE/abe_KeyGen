@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
 
   cpabe.keygen("|attr1|attr2", "key0");
 
-  cpabe.encrypt("attr1 and attr2", pt1, ct);
+  cpabe.encrypt("attr1 and attr2 and attr3", pt1, ct);
 
   bool result = cpabe.decrypt("key0", ct, pt2);
 
@@ -60,7 +60,6 @@ int main(int argc, char **argv) {
   cout << "Recovered message: " << pt2 << endl;
 
   ShutdownOpenABE();
-
   return 0;
 }
 
