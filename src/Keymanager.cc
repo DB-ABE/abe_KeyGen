@@ -87,6 +87,7 @@ static void* thread_keygenerate(void *arg)
 	ssl = SSL_new (ctx);
 	if(ssl <= 0)
     {
+		SSL_CTX_free(ctx);
         printf("Error creating SSL new \n");
         goto exit;
     }

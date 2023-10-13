@@ -25,7 +25,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     char crt_len[5] = {0};
     char *dataStr = NULL;
     RSA* rsa = NULL;
-     X509_REQ* req = NULL;
+    X509_REQ* req = NULL;
     /*以下是正常的TCP socket建立过程 .............................. */
     printf("Begin tcp socket...\n");
     int sd = socket (AF_INET, SOCK_STREAM, 0);       
@@ -46,6 +46,8 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     }
     /* TCP 链接已建立.开始 SSL 握手过程.......................... */
     SSL_CTX *ctx = NULL;
+
+    //ctx初始化代码块
     {
 		SSL_METHOD *meth;
 		/* * 算法初始化 * */   
@@ -61,7 +63,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
 		if(ctx == NULL)
 		{
 			printf ("SSL_CTX_new error\n");
-			return NULL;
+			return 1;
 		}
 		// /*验证与否,是否要验证对方*/
 		SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);   
@@ -82,6 +84,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     SSL_connect (ssl);               
     printf("链接已建立.开始 SSL 握手过程 \n");
 
+    //客户端认证KMS证书代码块
     {
         char *str = NULL;
         X509 *server_cert = NULL;
@@ -108,14 +111,26 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     /* 数据交换开始,用SSL_write,SSL_read代替write,read */
     printf("Begin SSL data exchange\n");
 
-    OpenSSL_add_all_algorithms();
-    OPENSSL_config(NULL);
 
     // 创建 RSA 密钥对
-    rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
-    if (rsa == NULL) {
-        perror("RSA 密钥对生成失败");
-        goto exit;
+    {
+        BIGNUM *bne = BN_new();;
+        int ret = BN_set_word(bne, 65537);
+        if(ret != 1){
+            goto exit;
+        }
+        rsa = RSA_new();
+        ret = RSA_generate_key_ex(rsa, 2048, bne, NULL);
+        if(ret != 1){
+            BN_free(bne);
+            goto exit;
+        }
+        BN_free(bne);
+        // rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
+        // if (rsa == NULL) {
+        //     perror("RSA 密钥对生成失败");
+        //     goto exit;
+        // }
     }
 
     // 创建 X509_REQ 对象
@@ -126,6 +141,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
         goto exit;
     }
 
+    //代码块：证书请求信息
     {
         // 设置证书请求版本
         X509_REQ_set_version(req, 0);
@@ -138,6 +154,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
         X509_NAME_free(name);
     }
 
+    //代码块:证书公钥设置
     {
         // 设置证书请求公钥
         EVP_PKEY* pkey = EVP_PKEY_new();
@@ -153,6 +170,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
         EVP_PKEY_free(pkey);
     }
     
+    //代码块：证书请求导出字符串
     {
         // 导出为字符类型
         BIO *bio = BIO_new(BIO_s_mem());
@@ -176,7 +194,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
         }
         
         char *DataString = (char *) malloc(1 + sizeof(char) * csrDataLen);
-        sprintf(DataString, "%.*s", csrDataLen, csrData);
+        sprintf(DataString, "%.*s", int(csrDataLen), csrData);
         // 打印导出的证书请求数据
         printf("导出的证书请求数据:\n%s\n", DataString);
         //free(csrData);
@@ -190,6 +208,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
         req = NULL;
     }
 
+    //代码块：接收来自KMS的证书
     {
         char *suffix = (char *)malloc(5 + strlen(Common_Name) * sizeof(char));//文件名；
         sprintf(suffix, "%s.pem", Common_Name);
@@ -199,7 +218,6 @@ int cert_generate(const char *country, const char *Organization, const char *Com
 		dataStr = (char *)malloc(1 + sizeof(char) * dataLen);
 		SSL_ReadAll(ssl, dataStr, dataLen + 1);
         printf("证书字符串:%s\n", dataStr);
-		puts("here");
         BIO* bio_certString = BIO_new_mem_buf(dataStr, -1);
         if (bio_certString == NULL) {
             // 处理加载失败的情况
@@ -215,13 +233,17 @@ int cert_generate(const char *country, const char *Organization, const char *Com
         certFile = fopen(suffix, "wb");
         free(suffix); suffix = NULL;
         if (!certFile) {
-            if(cert_new)X509_free(cert_new);
+            if(cert_new){
+                X509_free(cert_new);
+            }
 			fprintf(stderr, "无法打开证书文件\n");
 			goto exit;
 		}
         if (PEM_write_X509(certFile, cert_new) != 1) {
 			// 处理写入失败的情况
-            if(cert_new)X509_free(cert_new);
+            if(cert_new){
+                X509_free(cert_new);
+            }
 			fclose(certFile);
 			goto exit;
 		}
@@ -248,26 +270,3 @@ int main(){
     return 0;
 }
 //g++ -o cert_client -std=c++11 -pthread -Wall -g -O2 -DSSL_LIB_INIT  -I/usr/local/include -L/usr/local/lib cert_client.cc -lcrypto -lssl -lcjson -ldl -fsanitize=address
-
-    
-    // BIO* bio_certString = BIO_new_mem_buf(DataString_new, -1);
-    // if (bio_certString == NULL) {
-    //     // 处理加载失败的情况
-    //     free(DataString_new);
-    //     return 1;
-    // }
-    
-    // // 从内存中读取 X.509 证书
-    // X509* cert_new = PEM_read_bio_X509(bio_certString, NULL, NULL, NULL);
-    // if (cert_new == NULL) {
-    //     // 处理读取失败的情况
-    //     cout<<"证书生成失败,程序退出"<<endl;
-    // }
-    // else cout<<"证书生成成功,程序退出"<<endl;
-    // free(DataString_new);
-    // // 释放 BIO 对象
-    // BIO_free(bio_certString);
-    // BIO_free(bio_cert);
-    // // 清理证书对象
-    // if(cert_new)X509_free(cert_new);
-

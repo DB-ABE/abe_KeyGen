@@ -110,17 +110,17 @@ static void* thread_certgenerate(void *arg){
 			// 处理错误
 		}
 	}
-	// 加载 CA 的私钥
+	// 加载 server 的私钥
     {
-		FILE *caKeyFile = fopen("../tmp/ca.pem", "rb");
+		FILE *caKeyFile = fopen(server_key_path, "rb");
 		if (!caKeyFile) {
-			fprintf(stderr, "无法打开 CA 的私钥文件\n");
+			fprintf(stderr, "无法打开 KMS 的私钥文件\n");
 			goto exit;
 		}
 		caKey = PEM_read_PrivateKey(caKeyFile, NULL, NULL, NULL);
 		fclose(caKeyFile);
 		if (!caKey) {
-			fprintf(stderr, "无法读取 CA 的私钥\n");
+			fprintf(stderr, "无法读取 KMS 的私钥\n");
 			goto exit;
 		}
 	}
@@ -191,7 +191,7 @@ static void* thread_certgenerate(void *arg){
 			goto exit;
 		}
 		// 将 CN 字段的值转换为 C 字符串
-		cnStr = (char*)ASN1_STRING_data(cnData);
+		cnStr = (char*)ASN1_STRING_get0_data(cnData);
 		if (cnStr == NULL) {
 			ASN1_STRING_free(cnData);
 			// 处理转换失败的情况
@@ -242,7 +242,7 @@ static void* thread_certgenerate(void *arg){
 			goto exit;
 		}
 		char *DataString_new = (char *)malloc(1 + sizeof(char) * certSize);
-		sprintf(DataString_new, "%.*s", certSize, certStr);
+		sprintf(DataString_new, "%.*s", int(certSize), certStr);
 		printf("证书字符串：\n%s\n", DataString_new);
 		sprintf((char *)crt_len, "%02x", int(certSize));
         SSL_WriteAll(ssl, crt_len, sizeof(crt_len));
