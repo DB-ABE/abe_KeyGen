@@ -2,24 +2,28 @@
 #include <openabe/openabe.h>
 #include <openabe/zsymcrypto.h>
 
-using namespace oabe;
-using namespace oabe::crypto;
-using namespace std;
 
 struct abe_user{
-  string user_id;
-  string user_key;
-  string user_attr;
+  std::string user_id;
+  std::string user_key;
+  std::string user_attr;
 };
 
+int abe_import_pp(oabe::OpenABECryptoContext &cpabe);
 
-int abe_init();
+int abe_import_msk(oabe::OpenABECryptoContext &cpabe);
 
-int abe_KeyGen(abe_user &user);
+int abe_generate(oabe::OpenABECryptoContext &cpabe);
 
-int abe_Encrypt(string pt, string policy, string &ct);
+int abe_init(oabe::OpenABECryptoContext &cpabe);
 
-int abe_Decrypt(string ct, abe_user user, string &pt);
+void abe_KeyGen(oabe::OpenABECryptoContext &cpabe, abe_user &user);
 
+void abe_KeyGen(abe_user &user, std::string abe_pp, std::string abe_msk);
 
-int abe_Userkeyin(abe_user &user);
+int abe_Encrypt(oabe::OpenABECryptoContext &cpabe, std::string pt, std::string policy, std::string &ct);
+
+int abe_Decrypt(oabe::OpenABECryptoContext &cpabe, std::string ct, abe_user user, std::string &pt);
+
+//将参数和密钥导入到string类型中
+bool parameter_import_string(std::string &public_parameter, std::string &secert_parameter);
