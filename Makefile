@@ -1,20 +1,29 @@
-.PHONY: all
+.PHONY:all clean
 
-CXX := g++
-CXX11FLAGS := -std=c++11
-OS_CXXFLAGS := 
-CXXFLAGS := $(CXX11FLAGS)$(OS_CXXFLAGS) -pthread -Wall -g -O2 -DSSL_LIB_INIT  -I/usr/local/include -fsanitize=address
-LDFLAGS :=  -L/usr/local/lib
-LIBS := -lcrypto -lrelic -lrelic_ec -lopenabe -lssl -lmysqlclient -lcjson -ldl
-SRCFLAGS := ./src/
-all: practice
+##
+PWD_DIR=$(shell pwd)
+BIN_DIR=$(PWD_DIR)/bin
+SRC_DIR=$(PWD_DIR)/src
+OBJ_DIR=$(PWD_DIR)/obj
+MAIN_DIR=$(PWD_DIR)/main
+LIB_DIR=$(PWD_DIR)/lib 
+INC_DIR=$(PWD_DIR)/include
+##
+CC=g++
+CFLAG=-Wall -g -I$(INC_DIR)
+LIBS :=-pthread -fsanitize=address -lcrypto -lrelic -lrelic_ec -lopenabe -lssl -lmysqlclient -lcjson -ldl
+##
+export PWD_DIR SRC_DIR OBJ_DIR MAIN_DIR LIB_DIR INC_DIR CC CFLAG LIBS BIN_DIR
 
-practice:
-	$(CXX) -o cl $(CXXFLAGS) $(LDFLAGS) Database.cc $(SRCFLAGS)rsa_Crypto.cc $(SRCFLAGS)abe_Crypto.cc $(SRCFLAGS)SSL_socket.cc $(LIBS)
-	$(CXX) -o sl $(CXXFLAGS) $(LDFLAGS) Keymanager.cc $(SRCFLAGS)rsa_Crypto.cc $(SRCFLAGS)abe_Crypto.cc $(SRCFLAGS)SSL_socket.cc $(LIBS)
-	$(CXX) -o cert_req $(CXXFLAGS) $(LDFLAGS) cert_client.cc $(SRCFLAGS)SSL_socket.cc $(LIBS)
-	$(CXX) -o cert_gen $(CXXFLAGS) $(LDFLAGS) cert_server.cc $(SRCFLAGS)SSL_socket.cc $(LIBS)
+##
+all:
+	make -C $(SRC_DIR)
+	make -C $(MAIN_DIR)
+	make -C $(OBJ_DIR)
+##
 clean:
-	rm -rf *.o practice setup encrypt decrypt files/*
-#g++ -o cl -std=c++11 -pthread -Wall -g -O2 -DSSL_LIB_INIT  -I/usr/local/include -L/usr/local/lib Database.cc rsa_Crypto.cc abe_Crypto.cc -lcrypto -lrelic -lrelic_ec -lopenabe -lssl -lmysqlclient -ldl
-#g++ -o sl -std=c++11 -pthread -Wall -g -O2 -DSSL_LIB_INIT  -I/usr/local/include -L/usr/local/lib Keymanager.cc rsa_Crypto.cc abe_Crypto.cc -lcrypto -lrelic -lrelic_ec -lopenabe -lssl -lmysqlclient -ldl
+	rm -rf $(OBJ_DIR)/*.o
+	rm -rf $(OBJ_DIR)/main/*.o
+	rm -rf $(OBJ_DIR)/src/*.o
+	rm -rf $(BIN_DIR)/*
+	

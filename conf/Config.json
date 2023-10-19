@@ -1,4 +1,8 @@
 {
     "HOST_IP" : "127.0.0.1",
-    "PORT" : 20001
+    "PORT" : 20001,
+    "ca_cert" : "./tmp/cacert.pem",
+    "KMS_cert" : "./tmp/servercert.pem",
+    "KMS_private_key" : "./tmp/server.pem",
+    "verfy_DB_cert" : "./tmp/clientcert.pem"
 }

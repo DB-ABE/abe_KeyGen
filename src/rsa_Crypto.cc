@@ -100,7 +100,8 @@ std::string RSA_Encrypt(const std::string strPemFileName, const std::string strD
 }
 
 // 签名 use private key
-int RSA_Sign(const std::string strPemFileName, std::string strData, unsigned char *pEncode, unsigned int &outlen)
+int RSA_Sign(const std::string strPemFileName, std::string strData,
+             unsigned char *pEncode, unsigned int &outlen)
 {
     // 检查输入是否合法
     if (strPemFileName.empty() || strData.empty())
@@ -234,7 +235,8 @@ std::string RSA_Decrypt(const std::string strPemFileName, const std::string strD
 }
 
 // 验证签名 use pubkey
-bool RSA_Verify(const std::string strPemFileName, const std::string strData, const unsigned char *sign_data)
+bool RSA_Verify(const std::string strPemFileName, const std::string strData,
+                const unsigned char *sign_data)
 {
     // 检验输入合法性
     if (strPemFileName.empty() || strData.empty())

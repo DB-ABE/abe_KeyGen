@@ -259,3 +259,13 @@ void SSL_response_ok(SSL *ssl, std::string uuid, const char *msg, const std::str
     free(json_str);
     data = NULL;
 }
+
+void SSL_Shut(SSL *ssl, SSL_CTX *ctx){
+    if (ctx)
+		SSL_CTX_free(ctx);
+	if (ssl)
+	{
+		SSL_shutdown(ssl);
+		SSL_free(ssl);
+	} /* send SSL/TLS close_notify */
+}
