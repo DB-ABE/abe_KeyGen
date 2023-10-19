@@ -85,32 +85,9 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     printf("链接已建立.开始 SSL 握手过程 \n");
 
     //客户端认证KMS证书代码块
-    {
-        char *str = NULL;
-        X509 *server_cert = NULL;
-        /*打印所有加密算法的信息(可选)*/
-        printf ("SSL connection using %s\n", SSL_get_cipher (ssl));
-        /*得到服务端的证书并打印些信息(可选) */
-        server_cert = SSL_get_peer_certificate (ssl);      
-        printf ("server certificate:\n");
-        if(server_cert == NULL){
-            printf ("server certificate error:\n");
-            goto exit;
-        }
-
-        str = X509_NAME_oneline (X509_get_subject_name (server_cert),0,0);
-        printf ("/t subject: %s\n", str);
-        free (str);
-
-        str = X509_NAME_oneline (X509_get_issuer_name  (server_cert),0,0);
-        printf ("/t issuer: %s\n", str);
-        free (str);
-
-        X509_free (server_cert);  /*如不再需要,需将证书释放 */
-    }
+    show_SSL(ssl);
     /* 数据交换开始,用SSL_write,SSL_read代替write,read */
     printf("Begin SSL data exchange\n");
-
 
     // 创建 RSA 密钥对
     {
@@ -126,11 +103,6 @@ int cert_generate(const char *country, const char *Organization, const char *Com
             goto exit;
         }
         BN_free(bne);
-        // rsa = RSA_generate_key(2048, RSA_F4, NULL, NULL);
-        // if (rsa == NULL) {
-        //     perror("RSA 密钥对生成失败");
-        //     goto exit;
-        // }
     }
 
     // 创建 X509_REQ 对象
@@ -198,7 +170,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
         // 打印导出的证书请求数据
         printf("导出的证书请求数据:\n%s\n", DataString);
         //free(csrData);
-        sprintf((char *)crt_len, "%02x", int(csrDataLen));
+        sprintf((char *)crt_len, "%04x", int(csrDataLen));
         SSL_WriteAll(ssl, crt_len, sizeof(crt_len));
         SSL_WriteAll(ssl, DataString, csrDataLen + 1);
         free(DataString);

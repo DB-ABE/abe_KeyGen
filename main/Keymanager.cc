@@ -26,7 +26,7 @@ using namespace std;
 static string ca_cert, KMS_private_key, KMS_cert, verify_key;//记录配置文件中的证书和密钥目录
 static int PORT = 20001;//记录端口号
 static string abe_pp, abe_msk;//记录abe密钥参数
-
+static SSL_CTX *ctx = NULL;
 static void *thread_keygenerate(void *arg)
 {
 	pthread_socket *ps_sock = (pthread_socket *)arg;
@@ -37,19 +37,11 @@ static void *thread_keygenerate(void *arg)
 	abe_user user;//用来存储abe的密钥和用户信息
 	int ret = 0, request_code = 0;//记录返回值，请求包代码
 	SSL *ssl = NULL;//ssl申请
-	SSL_CTX *ctx = InitSSL((char *)ca_cert.c_str(), (char *)KMS_cert.c_str(), (char *)KMS_private_key.c_str(), 1);
-	if (ctx == NULL)
-	{
-		SSL_Shut(ssl, ctx);
-		shutdown(ps_sock->socket_d, 2);
-		cout<<"证书导入失败"<<endl;
-		return NULL;
-	}
 	/*申请一个SSL套接字*/
 	ssl = SSL_new(ctx);
 	if (ssl <= 0)
 	{
-		SSL_Shut(ssl, ctx);
+		SSL_Shut(ssl);
 		shutdown(ps_sock->socket_d, 2);
 		cout<<"ssl构建失败"<<endl;
 		return NULL;
@@ -70,7 +62,7 @@ static void *thread_keygenerate(void *arg)
 	{
 		cout << "非用户注册，线程退出" << endl;
 		SSL_response_error(ssl, uuid.c_str(), "非注册类型, 请确认后重试", 2);
-		SSL_Shut(ssl, ctx);
+		SSL_Shut(ssl);
 		return NULL;
 	}
 	// 进行RSA签名的认证
@@ -83,7 +75,7 @@ static void *thread_keygenerate(void *arg)
 	{
 		cout << "验签失败，请传输正确的签名数据~~。" << endl;
 		SSL_response_error(ssl, uuid, "验签失败，请传输正确的签名数据", 2);
-		SSL_Shut(ssl, ctx);
+		SSL_Shut(ssl);
 		return NULL;
 	}
 	printf("验证签名of %s成功!\n", username.c_str());
@@ -93,7 +85,7 @@ static void *thread_keygenerate(void *arg)
 	{ // 如果不存在
 		cout << "用户证书不存在，请提醒用户及时申请证书" << endl;
 		SSL_response_error(ssl, uuid, "用户证书不存在，请提醒用户及时申请证书", 1);
-		SSL_Shut(ssl, ctx);
+		SSL_Shut(ssl);
 		return NULL;
 	}
 
@@ -110,7 +102,7 @@ static void *thread_keygenerate(void *arg)
 	cout << "密钥及签名生成完毕, 开始返回响应包" << endl;
 	SSL_response_ok(ssl, uuid, "用户信息核验成功, 生成abe_密钥", cipher, RSA_sign_buf, sign_length, 0);
 	/* 收尾工作 */
-	SSL_Shut(ssl, ctx);
+	SSL_Shut(ssl);
 	shutdown(ps_sock->socket_d, 2);
 	return &ps_sock->socket_d;
 }
@@ -187,5 +179,13 @@ int main(void)
 	KMS_cert = getConfigString(config, "KMS_cert");
 	verify_key = getConfigString(config, "verfy_DB_cert");
 	PORT = getConfigInt(config, "PORT");
+	ctx = InitSSL((char *)ca_cert.c_str(), (char *)KMS_cert.c_str(), (char *)KMS_private_key.c_str(), 1);
+	if (ctx == NULL)
+	{
+		cout<<"证书导入失败"<<endl;
+		return -1;
+	}
 	sock_init(PORT);
+	SSL_CTX_free(ctx);
+	return 0;
 }

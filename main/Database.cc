@@ -147,7 +147,7 @@ int mysql_generateABEKey(string username, string attibute)
         cout << "请求包长度:" << strlen(json_str) << endl;
         sprintf((char *)json_len_hex, "%04x", int(strlen(json_str)));
         cout << json_len_hex << endl;
-        SSL_WriteAll(ssl, (char *)json_len_hex, sizeof(json_len_hex));
+        SSL_WriteAll(ssl, (char *)json_len_hex, sizeof(json_len_hex) - 1);
         SSL_WriteAll(ssl, json_str, strlen(json_str));
         free(json_str);
         free(base64String);
@@ -157,7 +157,7 @@ int mysql_generateABEKey(string username, string attibute)
         user.user_id = username;
         user.user_attr = attibute;
 
-        SSL_ReadAll(ssl, (char *)json_len_hex, sizeof(json_len_hex));
+        SSL_ReadAll(ssl, (char *)json_len_hex, sizeof(json_len_hex) - 1);
         json_len = stoi((const char *)json_len_hex, 0, 16);
         cout << "接收到响应包长度:" << json_len << endl;
 
