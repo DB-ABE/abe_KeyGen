@@ -198,7 +198,7 @@ int mysql_generateABEKey(string username, string attibute)
         if (strcmp(key->valuestring, "RSA") == 0)
         {
             cout << "获取abe密钥及RSA签名, 进行认证" << endl;
-            key = cJSON_GetObjectItem(data, "abe_key"); // 获取abe密钥
+            key = cJSON_GetObjectItem(data, "abekey"); // 获取abe密钥
             string abe_cipher, abe_sign_data;
             int ret = 0;
             base64String = (char *)base64Decode(key->valuestring, strlen(key->valuestring), &ret);
@@ -228,6 +228,7 @@ int mysql_generateABEKey(string username, string attibute)
             cout << "验证abe签名成功" << endl;
             free(base64String);
             base64String = NULL;
+            
         }
     }
 
@@ -281,7 +282,8 @@ int main()
     //      cout<<endl;
     //  }
 
-    mysql_generateABEKey("client", "|attr1|attr2|attr3 = 3|Date1 = March 20, 2022|Date2 = March 20, 2023|Date3 = March 20, 2022");
+    //mysql_generateABEKey("client", "|attr1|attr2|attr3 = 3|Date1 = March 20, 2022|Date2 = March 20, 2023|Date3 = March 20, 2022");
+    mysql_generateABEKey("client", "|attr1");
 
     // exit:
     //     if(conn)mysql_close(conn);

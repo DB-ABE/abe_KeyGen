@@ -241,10 +241,10 @@ void SSL_response_ok(SSL *ssl, std::string uuid, const char *msg, const std::str
     cJSON_AddStringToObject(data, "uuid", uuid.c_str());
     std::string abe_key, sign_data;
     cJSON_AddNumberToObject(response, "code", 0);
-    cJSON_AddStringToObject(response, "msg", "用户信息核验成功, 生成abe_密钥");
+    cJSON_AddStringToObject(response, "msg", msg);
     char *base64String = base64Encode((const unsigned char *)cipher.c_str(), cipher.length());
     abe_key.assign(base64String);
-    cJSON_AddStringToObject(data, "abe_key", base64String);
+    cJSON_AddStringToObject(data, "abekey", base64String);
     free(base64String);
 
     base64String = base64Encode((const unsigned char *)RSA_sign_buf, sign_length);

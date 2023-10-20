@@ -32,8 +32,7 @@ std::string RSA_Encrypt(const std::string strPemFileName, const std::string strD
     X509 *cert = PEM_read_X509(hPubKeyFile, nullptr, nullptr, nullptr);
     EVP_PKEY *evp_key = X509_get_pubkey(cert);
     RSA *pRSAPublicKey = EVP_PKEY_get1_RSA(evp_key);
-    EVP_PKEY_free(evp_key);
-    X509_free(cert);
+    
 
     // 获取rsa长度
     int nLen = RSA_size(pRSAPublicKey);
@@ -92,6 +91,7 @@ std::string RSA_Encrypt(const std::string strPemFileName, const std::string strD
     }
     // 释放资源
     delete[] pEncode;
+    EVP_PKEY_free(evp_key);
     X509_free(cert);
     RSA_free(pRSAPublicKey);
     fclose(hPubKeyFile);

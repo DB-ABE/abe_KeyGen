@@ -23,27 +23,27 @@
 	}
 using namespace std;
 
-static string ca_cert, KMS_private_key, KMS_cert, verify_key;//记录配置文件中的证书和密钥目录
-static int PORT = 20001;//记录端口号
-static string abe_pp, abe_msk;//记录abe密钥参数
+static string ca_cert, KMS_private_key, KMS_cert, verify_key; // 记录配置文件中的证书和密钥目录
+static int PORT = 20001;									  // 记录端口号
+static string abe_pp, abe_msk;								  // 记录abe密钥参数
 static SSL_CTX *ctx = NULL;
 static void *thread_keygenerate(void *arg)
 {
 	pthread_socket *ps_sock = (pthread_socket *)arg;
-	//记录uuid, 签名类型,用户属性签名，用户名，用户属性，用户加密后的abe密钥
+	// 记录uuid, 签名类型,用户属性签名，用户名，用户属性，用户加密后的abe密钥
 	string uuid, sign_type, user_sign, username, attibute, cipher;
-	unsigned char RSA_sign_buf[257];//签名信息
-	unsigned int sign_length;//签名长度
-	abe_user user;//用来存储abe的密钥和用户信息
-	int ret = 0, request_code = 0;//记录返回值，请求包代码
-	SSL *ssl = NULL;//ssl申请
+	unsigned char RSA_sign_buf[257]; // 签名信息
+	unsigned int sign_length;		 // 签名长度
+	abe_user user;					 // 用来存储abe的密钥和用户信息
+	int ret = 0, request_code = 0;	 // 记录返回值，请求包代码
+	SSL *ssl = NULL;				 // ssl申请
 	/*申请一个SSL套接字*/
 	ssl = SSL_new(ctx);
 	if (ssl <= 0)
 	{
 		SSL_Shut(ssl);
 		shutdown(ps_sock->socket_d, 2);
-		cout<<"ssl构建失败"<<endl;
+		cout << "ssl构建失败" << endl;
 		return NULL;
 	}
 	/*绑定读写套接字*/
@@ -61,7 +61,7 @@ static void *thread_keygenerate(void *arg)
 	if (request_code != 0)
 	{
 		cout << "非用户注册，线程退出" << endl;
-		SSL_response_error(ssl, uuid.c_str(), "非注册类型, 请确认后重试", 2);
+		SSL_response_error(ssl, uuid.c_str(), "Non registered type, please confirm and try again", 2);
 		SSL_Shut(ssl);
 		return NULL;
 	}
@@ -74,7 +74,7 @@ static void *thread_keygenerate(void *arg)
 	if (ret != 1)
 	{
 		cout << "验签失败，请传输正确的签名数据~~。" << endl;
-		SSL_response_error(ssl, uuid, "验签失败，请传输正确的签名数据", 2);
+		SSL_response_error(ssl, uuid, "Verification signature failed, please transmit the correct signature data", 2);
 		SSL_Shut(ssl);
 		return NULL;
 	}
@@ -84,7 +84,9 @@ static void *thread_keygenerate(void *arg)
 	if (!check_cert("tmp/" + username + "cert.pem"))
 	{ // 如果不存在
 		cout << "用户证书不存在，请提醒用户及时申请证书" << endl;
-		SSL_response_error(ssl, uuid, "用户证书不存在，请提醒用户及时申请证书", 1);
+		SSL_response_error(ssl, uuid,
+						   "The user certificate does not exist. " \
+						   "Please remind the user to apply for the certificate in a timely manner", 1);
 		SSL_Shut(ssl);
 		return NULL;
 	}
@@ -93,14 +95,27 @@ static void *thread_keygenerate(void *arg)
 	user.user_id = username;
 	user.user_attr = attibute;
 	abe_KeyGen(user, abe_pp, abe_msk);
-	if (1)
+	if (1)//如果是RSA加密和签名
 	{
 		cipher = RSA_Encrypt("tmp/" + username + "cert.pem", user.user_key); // 如果加密类型为RSA加密
+		for(int i = 0; i < cipher.length(); i++)printf("%02x", cipher[i]);
+		puts("");
+		user.user_key = RSA_Decrypt("tmp/" + username + ".pem", cipher);
+		{
+			string ct;
+			oabe::InitializeOpenABE();
+			oabe::OpenABECryptoContext cpabe("CP-ABE");
+			abe_init(cpabe);
+			abe_KeyGen(cpabe, user);
+			abe_Encrypt(cpabe, "test", "attr1", ct);
+			abe_Decrypt(cpabe, ct, user, ct);
+			oabe::ShutdownOpenABE();
+		}
 		// abe密钥签名
 		RSA_Sign(KMS_private_key, cipher, RSA_sign_buf, sign_length);
 	}
 	cout << "密钥及签名生成完毕, 开始返回响应包" << endl;
-	SSL_response_ok(ssl, uuid, "用户信息核验成功, 生成abe_密钥", cipher, RSA_sign_buf, sign_length, 0);
+	SSL_response_ok(ssl, uuid, "succeed to generate abe key for user", cipher, RSA_sign_buf, sign_length, 0);
 	/* 收尾工作 */
 	SSL_Shut(ssl);
 	shutdown(ps_sock->socket_d, 2);
@@ -166,13 +181,12 @@ int sock_init(int port = 20001)
 		}
 	}
 	pthread_join(KenGen, NULL);
-	// oabe::ShutdownOpenABE();
 	return 0;
 }
 
 int main(void)
 {
-	cout<<"导入配置文件"<<endl;
+	cout << "导入配置文件" << endl;
 	json config = loadConfiguration("./conf/Config.json");
 	ca_cert = getConfigString(config, "ca_cert");
 	KMS_private_key = getConfigString(config, "KMS_private_key");
@@ -182,7 +196,7 @@ int main(void)
 	ctx = InitSSL((char *)ca_cert.c_str(), (char *)KMS_cert.c_str(), (char *)KMS_private_key.c_str(), 1);
 	if (ctx == NULL)
 	{
-		cout<<"证书导入失败"<<endl;
+		cout << "证书导入失败" << endl;
 		return -1;
 	}
 	sock_init(PORT);
