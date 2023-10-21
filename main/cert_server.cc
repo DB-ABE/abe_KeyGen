@@ -46,14 +46,14 @@ static void* thread_certgenerate(void *arg){
 	cout<<"由客户端进行证书认证"<<endl;
 
 	//接收来自客户端的证书请求
-	SSL_ReadAll(ssl, crt_len, sizeof(crt_len));
+	SSL_ReadAll(ssl, crt_len, sizeof(crt_len) - 1);
 	dataLen = stoi((const char*)crt_len, 0, 16);
 	dataStr = (char *)malloc(1 + sizeof(char) * dataLen);
 	SSL_ReadAll(ssl, dataStr, dataLen + 1);
 	
 	// 创建证书
     X509 *cert = cert_from_str(bio_req, dataStr, KMS_key);
-	SSL_cert_write(ssl, cert);
+	SSL_cert_Write(ssl, cert);
 
 	X509_free(cert);
 	SSL_Shut(ssl, bio_req, dataStr);
@@ -120,7 +120,7 @@ int main(void){
 	json config = loadConfiguration("./conf/Config.json");
 	server_key_path = getConfigString(config, "KMS_private_key");
 	server_cert_path = getConfigString(config, "KMS_cert");
-	ctx = cert_SSL_init(server_cert_path.c_str(), server_key_path.c_str());
+	ctx = cert_SSL_Init(server_cert_path.c_str(), server_key_path.c_str());
 	/*申请一个SSL套接字*/
 	if (ctx == NULL)
 	{
@@ -128,7 +128,7 @@ int main(void){
 		return -1;
 	}
 	// 加载 server 的私钥
-    KMS_key = SSL_PKEY_read(server_key_path.c_str());
+    KMS_key = SSL_PKEY_Read(server_key_path.c_str());
 	if(KMS_key) {
 		sock_init(PORT);
 		EVP_PKEY_free(KMS_key);

@@ -166,7 +166,7 @@ SSL_CTX *InitSSL(char *ca_path, char *client_crt_path,
     return ctx;
 }
 
-void SSL_Json_get(SSL *ssl, std::string &uuid, std::string &username, std::string &attibute,
+void SSL_Json_Get(SSL *ssl, std::string &uuid, std::string &username, std::string &attibute,
                   std::string &sign_type, std::string &user_sign, int &code)
 {
     // begin json transportion
@@ -209,7 +209,8 @@ void SSL_Json_get(SSL *ssl, std::string &uuid, std::string &username, std::strin
     key = cJSON_GetObjectItem(request, "dbSignatureType"); // 提取签名类型
     sign_type.assign(key->valuestring);
 }
-void SSL_Json_write(SSL *ssl, char *json_str)
+
+void SSL_Json_Write(SSL *ssl, char *json_str)
 {
     char json_len_hex[5];
     sprintf((char *)json_len_hex, "%04x", int(strlen(json_str)));
@@ -227,7 +228,7 @@ void SSL_response_error(SSL *ssl, std::string uuid, const char *msg, int error_c
     cJSON_AddItemToObject(response, "data", data);
     char *json_str = cJSON_Print(response);
     std::cout << "abe_keygen_error: 响应包长度:" << strlen(json_str) << std::endl;
-    SSL_Json_write(ssl, json_str);
+    SSL_Json_Write(ssl, json_str);
     free(json_str);
     data = NULL;
     cJSON_Delete(response);
@@ -256,12 +257,12 @@ void SSL_response_ok(SSL *ssl, std::string uuid, const char *msg, const std::str
     // 发送响应包
     char *json_str = cJSON_Print(response);
     std::cout << "响应包长度:" << strlen(json_str) << std::endl;
-    SSL_Json_write(ssl, json_str);
+    SSL_Json_Write(ssl, json_str);
     free(json_str);
     data = NULL;
 }
 
-void SSL_Shut(SSL *ssl, BIO *bio_req, char *dataStr)
+void SSL_Shut(SSL *ssl, BIO *bio_req, char *dataStr, X509_REQ *req, SSL_CTX *ctx)
 {
     if (ssl)
     {
@@ -272,26 +273,35 @@ void SSL_Shut(SSL *ssl, BIO *bio_req, char *dataStr)
     if (dataStr)
         free(dataStr);
     if (bio_req)
-        BIO_free(bio_req);/*free cert_req*/
+        BIO_free(bio_req); /*free cert_req*/
+
+    if (req)
+        X509_REQ_free(req); /*free req in client*/
+
+    if (ctx)
+        SSL_CTX_free(ctx); /*free req in client*/
 }
 
-EVP_PKEY *SSL_PKEY_read(const char *key_path){
+EVP_PKEY *SSL_PKEY_Read(const char *key_path)
+{
     EVP_PKEY *Key;
     FILE *caKeyFile = fopen(key_path, "rb");
-	if (!caKeyFile) {
-		fprintf(stderr, "无法打开 KMS 的私钥文件\n");
-		return NULL;
-	}
-	Key = PEM_read_PrivateKey(caKeyFile, NULL, NULL, NULL);
-	fclose(caKeyFile);
-	if (!Key) {
-		fprintf(stderr, "无法读取 KMS 的私钥\n");
-		return NULL;
-	}
+    if (!caKeyFile)
+    {
+        fprintf(stderr, "无法打开 KMS 的私钥文件\n");
+        return NULL;
+    }
+    Key = PEM_read_PrivateKey(caKeyFile, NULL, NULL, NULL);
+    fclose(caKeyFile);
+    if (!Key)
+    {
+        fprintf(stderr, "无法读取 KMS 的私钥\n");
+        return NULL;
+    }
     return Key;
 }
 
-SSL_CTX *cert_SSL_init(const char *server_cert_path, const char *server_key_path)
+SSL_CTX *cert_SSL_Init(const char *server_cert_path, const char *server_key_path, const char *ca_path, bool C_S_flag)
 {
     SSL_CTX *ctx = NULL;
     SSL_METHOD *meth;
@@ -302,7 +312,10 @@ SSL_CTX *cert_SSL_init(const char *server_cert_path, const char *server_key_path
 
     // 添加SSL的加密/HASH算法
     SSLeay_add_ssl_algorithms();
-    meth = (SSL_METHOD *)TLS_server_method();
+    if (C_S_flag)
+        meth = (SSL_METHOD *)TLS_server_method();
+    else
+        meth = (SSL_METHOD *)TLS_client_method();
     /* 创建SSL会话环境 */
     ctx = SSL_CTX_new(meth);
     if (ctx == NULL)
@@ -310,44 +323,54 @@ SSL_CTX *cert_SSL_init(const char *server_cert_path, const char *server_key_path
         printf("SSL_CTX_new error\n");
         return NULL;
     }
-    // /*验证与否,是否要验证对方*/
-    SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
 
-    /*加载自己的证书*/
-    if (SSL_CTX_use_certificate_file(ctx, server_cert_path, SSL_FILETYPE_PEM) <= 0)
+    if (C_S_flag)
     {
-        printf("SSL_CTX_use_certificate_file error\n");
-        if (ctx)
-            SSL_CTX_free(ctx);
-        return NULL;
-    }
-    /*加载自己的私钥,以用于签名*/
-    if (SSL_CTX_use_PrivateKey_file(ctx, server_key_path, SSL_FILETYPE_PEM) <= 0)
-    {
-        printf("SSL_CTX_use_PrivateKey_file error\n");
-        if (ctx)
-            SSL_CTX_free(ctx);
-        return NULL;
-    }
-    // 设置证书私钥文件的密码
-    // SSL_CTX_set_default_passwd_cb_userdata(ctx, pw);
+        // /*验证与否,是否要验证对方*/
+        SSL_CTX_set_verify(ctx, SSL_VERIFY_NONE, NULL);
+        /*加载自己的证书*/
+        if (SSL_CTX_use_certificate_file(ctx, server_cert_path, SSL_FILETYPE_PEM) <= 0)
+        {
+            printf("SSL_CTX_use_certificate_file error\n");
+            if (ctx)
+                SSL_CTX_free(ctx);
+            return NULL;
+        }
+        /*加载自己的私钥,以用于签名*/
+        if (SSL_CTX_use_PrivateKey_file(ctx, server_key_path, SSL_FILETYPE_PEM) <= 0)
+        {
+            printf("SSL_CTX_use_PrivateKey_file error\n");
+            if (ctx)
+                SSL_CTX_free(ctx);
+            return NULL;
+        }
+        // 设置证书私钥文件的密码
+        // SSL_CTX_set_default_passwd_cb_userdata(ctx, pw);
 
-    /*调用了以上两个函数后,检验一下自己的证书与私钥是否配对*/
-    if (!SSL_CTX_check_private_key(ctx))
-    {
-        printf("SSL_CTX_check_private_key error\n");
-        if (ctx)
-            SSL_CTX_free(ctx);
-        return NULL;
+        /*调用了以上两个函数后,检验一下自己的证书与私钥是否配对*/
+        if (!SSL_CTX_check_private_key(ctx))
+        {
+            printf("SSL_CTX_check_private_key error\n");
+            if (ctx)
+                SSL_CTX_free(ctx);
+            return NULL;
+        }
+        SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
+        // /*若验证对方,则放置CA证书*/
+        SSL_CTX_load_verify_locations(ctx, ca_path, NULL);
+        return ctx;
     }
+
     return ctx;
 }
 
-X509 *cert_Gen(X509_REQ *req_new, EVP_PKEY *KMS_key){
+X509 *cert_Gen(X509_REQ *req_new, EVP_PKEY *KMS_key)
+{
     X509 *cert = X509_new();
-    if (!cert) {
+    if (!cert)
+    {
         fprintf(stderr, "无法创建证书对象\n");
-		return NULL;
+        return NULL;
     }
 
     // 设置证书版本号
@@ -359,38 +382,40 @@ X509 *cert_Gen(X509_REQ *req_new, EVP_PKEY *KMS_key){
     // 设置证书有效期
     X509_gmtime_adj(X509_get_notBefore(cert), 0);
     X509_gmtime_adj(X509_get_notAfter(cert), 31536000L); // 有效期为1年
-    
+
     // 设置证书主题
     X509_set_subject_name(cert, X509_REQ_get_subject_name(req_new));
 
     // 设置证书颁发者
     X509_set_issuer_name(cert, X509_REQ_get_subject_name(req_new));
-    
+
     // 设置证书公钥
     EVP_PKEY *pkey_req = X509_REQ_get_pubkey(req_new);
     X509_set_pubkey(cert, pkey_req);
     EVP_PKEY_free(pkey_req);
     pkey_req = NULL;
-	
-	// 签名证书
-    if (!X509_sign(cert, KMS_key, EVP_sha512())) {
+
+    // 签名证书
+    if (!X509_sign(cert, KMS_key, EVP_sha512()))
+    {
         fprintf(stderr, "无法签名证书\n");
-		return NULL;
+        return NULL;
     }
     return cert;
 }
 
-void cert_save(X509 *cert){
-    X509_NAME_ENTRY* entry = NULL;
-    ASN1_STRING* cnData = NULL;
-    char* cnStr = NULL;
-    char *suffix = NULL;
+void cert_Save(X509 *cert, const char *pwd)
+{
+    X509_NAME_ENTRY *entry = NULL;
+    ASN1_STRING *cnData = NULL;
+    char *cnStr = NULL;
     FILE *certFile = NULL;
-    //获取证书主题
-    X509_NAME* subject = X509_get_subject_name(cert);
+    // 获取证书主题
+    X509_NAME *subject = X509_get_subject_name(cert);
     // 查找 Common Name (CN) 字段
     int cnIndex = X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
-    if (cnIndex < 0) {
+    if (cnIndex < 0)
+    {
         X509_NAME_free(subject);
         // 处理未找到 CN 字段的情况
         printf("error: 未在证书中找到 CN 字段\n");
@@ -400,31 +425,30 @@ void cert_save(X509 *cert){
     entry = X509_NAME_get_entry(subject, cnIndex);
     cnData = X509_NAME_ENTRY_get_data(entry);
 
-    if (cnData == NULL) {
+    if (cnData == NULL)
+    {
         X509_NAME_ENTRY_free(entry);
         // 处理获取 CN 值失败的情况
         printf("error: 获取证书中 CN 字段失败\n");
     }
     // 将 CN 字段的值转换为 C 字符串
-    cnStr = (char*)ASN1_STRING_get0_data(cnData);
-    if (cnStr == NULL) {
+    cnStr = (char *)ASN1_STRING_get0_data(cnData);
+    if (cnStr == NULL)
+    {
         ASN1_STRING_free(cnData);
         // 处理转换失败的情况
         printf("error: 获取证书中 CN 字段转换字符串失败\n");
     }
-    suffix = (char *)malloc(5 + strlen(cnStr) * sizeof(char));
-    sprintf(suffix, "%s.pem", cnStr);
     // 将证书保存到文件
-    certFile = fopen(suffix, "wb");
-    free(suffix);
-    suffix = NULL;
-    cnStr = NULL;
+    certFile = fopen((pwd + std::string(cnStr) + "_cert.pem").c_str(), "wb");
 
-    if (!certFile) {
+    if (!certFile)
+    {
         fprintf(stderr, "error: 无法打开证书文件\n");
     }
 
-    if (PEM_write_X509(certFile, cert) != 1) {
+    if (PEM_write_X509(certFile, cert) != 1)
+    {
         // 处理写入失败的情况
         fprintf(stderr, "error: 证书文件写入失败\n");
         fclose(certFile);
@@ -432,43 +456,50 @@ void cert_save(X509 *cert){
     fclose(certFile);
 }
 
-X509 *cert_from_str(BIO *bio_req, char *dataStr, EVP_PKEY *KMS_key){
-    
+X509 *cert_from_str(BIO *bio_req, char *dataStr, EVP_PKEY *KMS_key)
+{
+
     bio_req = BIO_new(BIO_s_mem());
     BIO_puts(bio_req, dataStr);
     X509_REQ *req_new = PEM_read_bio_X509_REQ(bio_req, NULL, NULL, NULL);
-    if (req_new == NULL) {
+    if (req_new == NULL)
+    {
         fprintf(stderr, "无法解析证书请求\n");
         return NULL;
         // 处理错误
     }
-	
-	// 创建证书
+
+    // 创建证书
     X509 *cert = cert_Gen(req_new, KMS_key);
     X509_REQ_free(req_new);
-    if(!cert) return NULL;
+    if (!cert)
+        return NULL;
 
-    //保存证书
-    cert_save(cert);
+    // 保存证书
+    cert_Save(cert);
     return cert;
 }
 
-void SSL_cert_write(SSL *ssl, X509 *cert){
+void SSL_cert_Write(SSL *ssl, X509 *cert)
+{
     // 将证书转换为字符串
-    BIO* bio_cert = BIO_new(BIO_s_mem());
-    if (bio_cert == NULL) {
+    BIO *bio_cert = BIO_new(BIO_s_mem());
+    if (bio_cert == NULL)
+    {
         perror("error: 证书传输 BIO 对象创建失败");
     }
 
-    if (!PEM_write_bio_X509(bio_cert, cert)) {
+    if (!PEM_write_bio_X509(bio_cert, cert))
+    {
         perror("error: 证书传输 证书转换为字符串失败");
         BIO_free(bio_cert);
         bio_cert = NULL;
     }
 
-    char* certStr;
+    char *certStr;
     long certSize = BIO_get_mem_data(bio_cert, &certStr);
-    if (certSize <= 0) {
+    if (certSize <= 0)
+    {
         perror("error: 证书传输 无效的证书字符串");
     }
     char *DataString_new = (char *)malloc(1 + sizeof(char) * certSize);
@@ -477,9 +508,139 @@ void SSL_cert_write(SSL *ssl, X509 *cert){
 
     char crt_len[5];
     sprintf((char *)crt_len, "%04x", int(certSize));
-    SSL_WriteAll(ssl, crt_len, sizeof(crt_len));
+    SSL_WriteAll(ssl, crt_len, sizeof(crt_len) - 1);
     SSL_WriteAll(ssl, DataString_new, certSize + 1);
     BIO_free(bio_cert);
     bio_cert = NULL;
     free(DataString_new);
+}
+
+//
+RSA *generate_prikey(unsigned long word, int bits, const char *Common_Name)
+{
+    BIGNUM *bne = BN_new();
+    ;
+    int ret = BN_set_word(bne, 65537);
+    if (ret != 1)
+    {
+        return NULL;
+    }
+    RSA *rsa = RSA_new();
+    ret = RSA_generate_key_ex(rsa, 2048, bne, NULL);
+    if (ret != 1)
+    {
+        BN_free(bne);
+        return NULL;
+    }
+    if (Common_Name)
+    {
+        FILE *file = fopen((std::string(Common_Name) + "_prikey.pem").c_str(), "w");
+        PEM_write_RSAPrivateKey(file, rsa, NULL, NULL, 0, NULL, NULL);
+        fclose(file);
+    }
+    BN_free(bne);
+    return rsa;
+}
+
+bool info_csr_Set(X509_REQ *req, RSA *rsa, const char *country,
+                  const char *Organization, const char *Common_Name)
+{
+    // 设置证书请求版本
+    X509_REQ_set_version(req, 0);
+    // 设置证书请求持有者信息
+    X509_NAME *name = X509_NAME_new();
+    X509_NAME_add_entry_by_txt(name, "C", MBSTRING_ASC, (unsigned char *)country, -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "O", MBSTRING_ASC, (unsigned char *)Organization, -1, -1, 0);
+    X509_NAME_add_entry_by_txt(name, "CN", MBSTRING_ASC, (unsigned char *)Common_Name, -1, -1, 0);
+    X509_REQ_set_subject_name(req, name);
+    X509_NAME_free(name);
+
+    // 设置证书请求公钥
+    EVP_PKEY *pkey = EVP_PKEY_new();
+    EVP_PKEY_assign_RSA(pkey, rsa);
+    X509_REQ_set_pubkey(req, pkey);
+
+    // 签名证书请求
+    if (!X509_REQ_sign(req, pkey, EVP_sha512()))
+    {
+        perror("证书请求签名失败");
+        EVP_PKEY_free(pkey);
+        return false;
+    }
+    EVP_PKEY_free(pkey);
+    return true;
+}
+
+bool SSL_csr_Write(SSL *ssl, X509_REQ *req)
+{
+    // 导出为字符类型
+    BIO *bio = BIO_new(BIO_s_mem());
+    if (!bio) {
+        fprintf(stderr, "无法创建BIO对象\n");
+        return false;
+    }
+
+    if (PEM_write_bio_X509_REQ(bio, req) == 0) {
+        fprintf(stderr, "无法导出证书请求\n");
+        BIO_free(bio);
+        return false;
+    }
+
+    char *csrData;
+    long csrDataLen = BIO_get_mem_data(bio, &csrData);
+    if (csrDataLen <= 0) {
+        fprintf(stderr, "无法获取导出的证书请求数据\n");
+        BIO_free(bio);
+        return false;
+    }
+    
+    char *DataString = (char *) malloc(1 + sizeof(char) * csrDataLen);
+    sprintf(DataString, "%.*s", int(csrDataLen), csrData);
+    // 打印导出的证书请求数据
+    printf("导出的证书请求数据:\n%s\n", DataString);
+    //将证书发送给ssl对应的通讯方
+    char crt_len[5] = {0};
+    sprintf((char *)crt_len, "%04x", int(csrDataLen));
+    SSL_WriteAll(ssl, crt_len, sizeof(crt_len) - 1);
+    SSL_WriteAll(ssl, DataString, csrDataLen + 1);
+    free(DataString);
+    BIO_free(bio);
+    bio = NULL;
+    return true;
+}
+
+bool SSL_cert_Read(SSL *ssl, const char *Common_Name)
+{   
+    //从ssl通讯方读取证书
+    char crt_len[5] = {0};
+    SSL_ReadAll(ssl, crt_len, sizeof(crt_len) - 1);
+    int dataLen = std::stoi((const char*)crt_len, 0, 16);
+    char *dataStr = (char *)malloc(1 + sizeof(char) * dataLen);
+    SSL_ReadAll(ssl, dataStr, dataLen + 1);
+    printf("证书字符串:%s\n", dataStr);
+    BIO* bio_certString = BIO_new_mem_buf(dataStr, -1);
+    if (bio_certString == NULL) {
+        // 处理加载失败的情况
+        free(dataStr);
+        return false;
+    }
+    
+    // 从内存中读取 X.509 证书
+    X509 *cert_new = PEM_read_bio_X509(bio_certString, NULL, NULL, NULL);
+    // 释放 BIO 对象
+    free(dataStr);
+    BIO_free(bio_certString);
+    if(!cert_new){
+        return false;
+    }
+    if (cert_new == NULL) {
+        // 处理读取失败的情况
+        printf("证书生成失败,程序退出\n");
+        return false;
+    }
+    cert_Save(cert_new);
+    // 清理证书对象
+    X509_free(cert_new);
+    printf("证书生成成功,程序退出");
+    return true;
 }

@@ -1,0 +1,8 @@
+./bin
+./obj
+./.vscode
+./cert.md
+./cert_*
+./*.pem
+./Keymanager
+./Database

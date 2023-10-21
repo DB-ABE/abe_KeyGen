@@ -52,7 +52,6 @@ int mysql_generateABEKey(string username, string attibute)
     char *base64String = NULL;
     string uuid, sign_length, cipher, sign_data, sign_data_abe;
     uuid.assign("1"); // 记录uid，从数据库索引
-    abe_user user;
     int sd = 0, confd = 0;
     unsigned int sign_len;
     SSL *ssl = NULL;
@@ -152,10 +151,7 @@ int mysql_generateABEKey(string username, string attibute)
         free(json_str);
         free(base64String);
         base64String = NULL;
-
-        // abe密钥测试,可删
-        user.user_id = username;
-        user.user_attr = attibute;
+        
 
         SSL_ReadAll(ssl, (char *)json_len_hex, sizeof(json_len_hex) - 1);
         json_len = stoi((const char *)json_len_hex, 0, 16);
@@ -201,6 +197,7 @@ int mysql_generateABEKey(string username, string attibute)
             key = cJSON_GetObjectItem(data, "abekey"); // 获取abe密钥
             string abe_cipher, abe_sign_data;
             int ret = 0;
+            cout<<"abekey based64:"<<key->valuestring<<endl;
             base64String = (char *)base64Decode(key->valuestring, strlen(key->valuestring), &ret);
             if (base64String == NULL)
             {
@@ -228,6 +225,23 @@ int mysql_generateABEKey(string username, string attibute)
             cout << "验证abe签名成功" << endl;
             free(base64String);
             base64String = NULL;
+
+            // {   
+            //     for(int i = 0; i < abe_cipher.length(); i++)printf("%02x", abe_cipher[i]);
+            //     puts("");
+            //     abe_user user;
+            //     user.user_key = RSA_Decrypt("tmp/client.pem", abe_cipher);
+            //     user.user_id = username;
+            //     user.user_attr = attibute;
+            //     string ct;
+            //     oabe::InitializeOpenABE();
+            //     oabe::OpenABECryptoContext cpabe("CP-ABE");
+            //     abe_init(cpabe);
+            //     abe_KeyGen(cpabe, user);
+            //     abe_Encrypt(cpabe, "test", "attr1", ct);
+            //     abe_Decrypt(cpabe, ct, user, ct);
+            //     oabe::ShutdownOpenABE();
+            // }
             
         }
     }

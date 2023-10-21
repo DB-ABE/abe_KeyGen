@@ -129,7 +129,7 @@ int RSA_Sign(const std::string strPemFileName, std::string strData,
 
     // 对签名信息hash，并将其转换为16进制字符串SHA_length * 2长度
     unsigned char digest[SHA_length];
-    SHA512((unsigned char *)strData.c_str(), strlen(strData.c_str()), digest);
+    SHA512((unsigned char *)strData.c_str(), strData.length(), digest);
 
     // 进行签名
     int ret = RSA_sign(NID_SHA, (const unsigned char *)digest, SHA_length,
@@ -261,7 +261,7 @@ bool RSA_Verify(const std::string strPemFileName, const std::string strData,
     unsigned char digest[SHA_length];
     bool flag = true;
     // 对输入进行hash并转换16进制
-    SHA512((const unsigned char *)strData.c_str(), strlen(strData.c_str()), digest);
+    SHA512((const unsigned char *)strData.c_str(), strData.length(), digest);
 
     // 对签名进行认证
     int ret = RSA_verify(NID_SHA, (const unsigned char *)digest, SHA_length,

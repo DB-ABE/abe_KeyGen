@@ -57,7 +57,7 @@ static void *thread_keygenerate(void *arg)
 	printf("Begin SSL data exchange\n");
 
 	// begin json transportion
-	SSL_Json_get(ssl, uuid, username, attibute, sign_type, user_sign, request_code);
+	SSL_Json_Get(ssl, uuid, username, attibute, sign_type, user_sign, request_code);
 	if (request_code != 0)
 	{
 		cout << "非用户注册，线程退出" << endl;
@@ -98,19 +98,6 @@ static void *thread_keygenerate(void *arg)
 	if (1)//如果是RSA加密和签名
 	{
 		cipher = RSA_Encrypt("tmp/" + username + "cert.pem", user.user_key); // 如果加密类型为RSA加密
-		for(int i = 0; i < cipher.length(); i++)printf("%02x", cipher[i]);
-		puts("");
-		user.user_key = RSA_Decrypt("tmp/" + username + ".pem", cipher);
-		{
-			string ct;
-			oabe::InitializeOpenABE();
-			oabe::OpenABECryptoContext cpabe("CP-ABE");
-			abe_init(cpabe);
-			abe_KeyGen(cpabe, user);
-			abe_Encrypt(cpabe, "test", "attr1", ct);
-			abe_Decrypt(cpabe, ct, user, ct);
-			oabe::ShutdownOpenABE();
-		}
 		// abe密钥签名
 		RSA_Sign(KMS_private_key, cipher, RSA_sign_buf, sign_length);
 	}
