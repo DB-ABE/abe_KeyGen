@@ -118,7 +118,7 @@ int sock_init(int port = 20000){
 int main(void){
 	cout<<"导入配置文件"<<endl;
 	json config = loadConfiguration("./conf/Config.json");
-	server_key_path = getConfigString(config, "KMS_private_key");
+	server_key_path = getConfigString(config, "KMS_prikey");
 	server_cert_path = getConfigString(config, "KMS_cert");
 	ctx = cert_SSL_Init(server_cert_path.c_str(), server_key_path.c_str());
 	/*申请一个SSL套接字*/

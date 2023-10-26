@@ -23,7 +23,7 @@
 	}
 using namespace std;
 
-static string ca_cert, KMS_private_key, KMS_cert, verify_key; // 记录配置文件中的证书和密钥目录
+static string ca_cert, KMS_private_key, KMS_cert, verify_key, user_cert_pwd; // 记录配置文件中的证书和密钥目录
 static int PORT = 20001;									  // 记录端口号
 static string abe_pp, abe_msk;								  // 记录abe密钥参数
 static SSL_CTX *ctx = NULL;
@@ -81,7 +81,7 @@ static void *thread_keygenerate(void *arg)
 	printf("验证签名of %s成功!\n", username.c_str());
 
 	// 检索是否存在用户证书
-	if (!check_cert("tmp/" + username + "cert.pem"))
+	if (!check_cert(user_cert_pwd + username + "_cert.pem"))
 	{ // 如果不存在
 		cout << "用户证书不存在，请提醒用户及时申请证书" << endl;
 		SSL_response_error(ssl, uuid,
@@ -97,7 +97,7 @@ static void *thread_keygenerate(void *arg)
 	abe_KeyGen(user, abe_pp, abe_msk);
 	if (1)//如果是RSA加密和签名
 	{
-		cipher = RSA_Encrypt("tmp/" + username + "cert.pem", user.user_key); // 如果加密类型为RSA加密
+		cipher = RSA_Encrypt(user_cert_pwd + username + "_cert.pem", user.user_key); // 如果加密类型为RSA加密
 		// abe密钥签名
 		RSA_Sign(KMS_private_key, cipher, RSA_sign_buf, sign_length);
 	}
@@ -175,10 +175,11 @@ int main(void)
 {
 	cout << "导入配置文件" << endl;
 	json config = loadConfiguration("./conf/Config.json");
-	ca_cert = getConfigString(config, "ca_cert");
-	KMS_private_key = getConfigString(config, "KMS_private_key");
+	ca_cert = getConfigString(config, "CA_cert");
+	KMS_private_key = getConfigString(config, "KMS_prikey");
 	KMS_cert = getConfigString(config, "KMS_cert");
-	verify_key = getConfigString(config, "verfy_DB_cert");
+	verify_key = getConfigString(config, "DB_cert");
+	user_cert_pwd = getConfigString(config, "user_cert_pwd");
 	PORT = getConfigInt(config, "PORT");
 	ctx = InitSSL((char *)ca_cert.c_str(), (char *)KMS_cert.c_str(), (char *)KMS_private_key.c_str(), 1);
 	if (ctx == NULL)

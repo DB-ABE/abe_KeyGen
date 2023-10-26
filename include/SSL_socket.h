@@ -49,18 +49,18 @@ SSL_CTX *cert_SSL_Init(const char *server_cert_path, const char *server_key_path
 
 X509 *cert_Gen(X509_REQ *req_new, EVP_PKEY *KMS_key);
 
-void cert_Save(X509 *cert, const char *pwd = "./");
+void cert_Save(X509 *cert, const char *pwd = "./cert/user/");
 
 X509 *cert_from_str(BIO *bio_req, char *dataStr, EVP_PKEY *KMS_key);
 
 void SSL_cert_Write(SSL *ssl, X509 *cert);
 
 //cert_client 头文件
-RSA *generate_prikey(unsigned long word, int bits, const char *Common_Name = NULL);
+RSA *generate_prikey(unsigned long word, int bits, const char *Common_Name = NULL, const char *pwd = "./tmp/");
 
 bool info_csr_Set(X509_REQ *req, RSA *rsa, const char *country,
                   const char *Organization, const char *Common_Name);
 
 bool SSL_csr_Write(SSL *ssl, X509_REQ *req);
 
-bool SSL_cert_Read(SSL *ssl, const char *Common_Name);
+bool SSL_cert_Read(SSL *ssl, const char *Common_Name, const char *cert_pwd = "./cert/user/");

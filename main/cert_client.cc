@@ -13,12 +13,13 @@
 #include <openssl/x509v3.h>
 #include <openssl/ssl.h>
 
+#include "Config.h"
 #include "SSL_socket.h"
 #define SERVER_ADDR "127.0.0.1"
 #define PORT 20000
 using namespace std;
 
-const char * ca_path = "tmp/cacert.pem";
+static string ca_cert;
 
 int cert_generate(const char *country, const char *Organization, const char *Common_Name){
     int confd = 0;
@@ -42,7 +43,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     }
     /* TCP 链接已建立.开始 SSL 握手过程.......................... */
     //ctx初始化
-    SSL_CTX *ctx = cert_SSL_Init(NULL, NULL, ca_path, 0);
+    SSL_CTX *ctx = cert_SSL_Init(NULL, NULL, ca_cert.c_str(), 0);
     SSL* ssl = SSL_new(ctx);
     if(ssl <= 0)
     {
@@ -62,7 +63,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     printf("Begin SSL data exchange\n");
 
     // 创建 RSA 密钥对
-    RSA *rsa = generate_prikey(65537, 2048, Common_Name);
+    RSA *rsa = generate_prikey(65537, 2048, Common_Name, "./tmp/");
     if(!rsa){
         SSL_Shut(ssl, NULL, NULL, NULL, ctx);
         return -1;
@@ -88,7 +89,7 @@ int cert_generate(const char *country, const char *Organization, const char *Com
     X509_REQ_free(req);
     req = NULL;
     //接收来自KMS的证书
-    if(!SSL_cert_Read(ssl, Common_Name)) {
+    if(!SSL_cert_Read(ssl, Common_Name, "./cert/user/")) {
         perror("证书接收异常");
         return -1;
     }
@@ -98,7 +99,8 @@ int cert_generate(const char *country, const char *Organization, const char *Com
 }
 
 int main(){
-    cout<<("1" + string("2")).c_str()<<endl;
+    json config = loadConfiguration("./conf/Config.json");
+    ca_cert = getConfigString(config, "CA_cert");
     cert_generate("CN", "hust", "zhangsan");
     return 0;
 }

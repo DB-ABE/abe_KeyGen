@@ -17,9 +17,12 @@
 #include "abe_Crypto.h"
 #include "SSL_socket.h"
 
-#define CACERT "tmp/cacert.pem"
-#define CLIENT_CRT "tmp/clientcert.pem"
-#define CLIENT_KEY "tmp/client.pem"
+#define CACERT "./cert/CA/CA_cert.pem"
+#define CLIENT_CRT "./cert/DB/DB_cert.pem"
+#define CLIENT_KEY "./tmp/DB_prikey.pem"
+const char *RSA_private_key = "./tmp/DB_prikey.pem";
+const char *RSA_ver_key = "./cert/KMS/KMS_cert.pem";
+
 #define CHK_ERR(err, s) \
     if ((err) == -1)    \
     {                   \
@@ -33,11 +36,6 @@
 #define CLIENT_mode 0
 using namespace std;
 
-const char *RSA_private_key = "tmp/client.pem";
-
-const char *RSA_public_key = "tmp/clientcert.pem";
-
-const char *RSA_ver_key = "tmp/servercert.pem";
 // 测试abe密钥，需要保证../abe_key/abe_pp参数
 
 int mysql_generateABEKey(string username, string attibute)
@@ -297,7 +295,7 @@ int main()
     //  }
 
     //mysql_generateABEKey("client", "|attr1|attr2|attr3 = 3|Date1 = March 20, 2022|Date2 = March 20, 2023|Date3 = March 20, 2022");
-    mysql_generateABEKey("client", "|attr1");
+    mysql_generateABEKey("DB", "|attr1");
 
     // exit:
     //     if(conn)mysql_close(conn);

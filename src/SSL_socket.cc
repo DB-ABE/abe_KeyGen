@@ -516,7 +516,7 @@ void SSL_cert_Write(SSL *ssl, X509 *cert)
 }
 
 //
-RSA *generate_prikey(unsigned long word, int bits, const char *Common_Name)
+RSA *generate_prikey(unsigned long word, int bits, const char *Common_Name, const char *pwd)
 {
     BIGNUM *bne = BN_new();
     ;
@@ -534,7 +534,7 @@ RSA *generate_prikey(unsigned long word, int bits, const char *Common_Name)
     }
     if (Common_Name)
     {
-        FILE *file = fopen((std::string(Common_Name) + "_prikey.pem").c_str(), "w");
+        FILE *file = fopen((pwd + std::string(Common_Name) + "_prikey.pem").c_str(), "w");
         PEM_write_RSAPrivateKey(file, rsa, NULL, NULL, 0, NULL, NULL);
         fclose(file);
     }
@@ -609,7 +609,7 @@ bool SSL_csr_Write(SSL *ssl, X509_REQ *req)
     return true;
 }
 
-bool SSL_cert_Read(SSL *ssl, const char *Common_Name)
+bool SSL_cert_Read(SSL *ssl, const char *Common_Name, const char *cert_pwd)
 {   
     //从ssl通讯方读取证书
     char crt_len[5] = {0};
@@ -638,7 +638,7 @@ bool SSL_cert_Read(SSL *ssl, const char *Common_Name)
         printf("证书生成失败,程序退出\n");
         return false;
     }
-    cert_Save(cert_new);
+    cert_Save(cert_new, cert_pwd);
     // 清理证书对象
     X509_free(cert_new);
     printf("证书生成成功,程序退出");
