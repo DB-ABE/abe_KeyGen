@@ -26,4 +26,5 @@ clean:
 	rm -rf $(OBJ_DIR)/main/*.o
 	rm -rf $(OBJ_DIR)/src/*.o
 	rm -rf $(BIN_DIR)/*
-	
+
+#TEST:

@@ -4,11 +4,11 @@
 #include <unistd.h>
 #include "abe_Crypto.h"
 #include <mutex>
-int abe_import_pp(oabe::OpenABECryptoContext &cpabe)
+int abe_import_pp(oabe::OpenABECryptoContext &cpabe, const char *pp_path)
 {
 	std::string abe_pp;
 	// 检测密钥文件是否存在
-	std::ifstream abe_publickey("./abe_key/abe_pp", std::ios::in);
+	std::ifstream abe_publickey(pp_path, std::ios::in);
 	if (!abe_publickey)
 	{
 		std::cout << "error opening public key-file." << std::endl;
@@ -23,11 +23,11 @@ int abe_import_pp(oabe::OpenABECryptoContext &cpabe)
 	return 1;
 }
 
-int abe_import_msk(oabe::OpenABECryptoContext &cpabe)
+int abe_import_msk(oabe::OpenABECryptoContext &cpabe, const char *sk_path)
 {
 	std::string abe_sk;
 	// 检测密钥文件是否存在
-	std::ifstream abe_securitykey("./abe_key/abe_sk", std::ios::in);
+	std::ifstream abe_securitykey(sk_path, std::ios::in);
 	if (!abe_securitykey)
 	{
 		std::cout << "error opening security pameter-file." << std::endl;
@@ -79,15 +79,10 @@ int abe_init(oabe::OpenABECryptoContext &cpabe)
 	// 检测abe_key文件是否存在，若不存在，则创建
 	if (access("./abe_key", F_OK) == 0)
 		std::cout << "abe_key dir exists" << std::endl;
-	else if (errno == ENOENT)
+	else
 	{
 		std::cout << "state:" << system("mkdir ./abe_key") << ",  successufully ";
 		std::cout << "generate abe_key dir" << std::endl;
-	}
-	else
-	{
-		std::cout << "error happend for abe_key dir" << std::endl;
-		return -1;
 	}
 
 	// 检测abe密钥是否已存在，若存在，则导入密钥，程序退出返回1
@@ -97,7 +92,7 @@ int abe_init(oabe::OpenABECryptoContext &cpabe)
 		int pp_flag = abe_import_pp(cpabe);
 		int msk_flag = abe_import_msk(cpabe);
 		if (pp_flag == 1 && msk_flag == 1)
-			return 1;
+			return 0;
 		return -1;
 	}
 	else
@@ -126,16 +121,15 @@ void abe_KeyGen(abe_user &user, std::string abe_pp, std::string abe_msk)
 	oabe::ShutdownOpenABE();
 }
 
-int abe_Encrypt(oabe::OpenABECryptoContext &cpabe, std::string pt, std::string policy, std::string &ct)
+void abe_Encrypt(oabe::OpenABECryptoContext &cpabe, std::string pt, std::string policy, std::string &ct)
 {
 
 	// 加密
 	cpabe.encrypt(policy, (const std::string)pt, ct);
 	std::cout << "encrypt succefully!" << std::endl;
-	return 1;
 }
 
-int abe_Decrypt(oabe::OpenABECryptoContext &cpabe, std::string ct, abe_user user, std::string &pt)
+void abe_Decrypt(oabe::OpenABECryptoContext &cpabe, std::string ct, abe_user user, std::string &pt)
 {
 	// 导入公共参数
 	abe_import_pp(cpabe);
@@ -144,19 +138,18 @@ int abe_Decrypt(oabe::OpenABECryptoContext &cpabe, std::string ct, abe_user user
 	// 解密
 	cpabe.decrypt((const std::string)user.user_id, (const std::string)ct, pt);
 	std::cout << "Recovered message: " << pt << std::endl;
-	return 1;
 }
 
-bool parameter_import_string(std::string &public_parameter, std::string &secert_parameter)
+bool parameter_import_string(std::string &public_parameter, std::string &secert_parameter, const char *pp_path, const char *sk_path)
 {
-	std::ifstream abe_publickey("./abe_key/abe_pp", std::ios::in);
+	std::ifstream abe_publickey(pp_path, std::ios::in);
 	if (!abe_publickey)
 	{
 		std::cout << "error opening public key-file." << std::endl;
 		return false;
 	}
 
-	std::ifstream abe_secertkey("./abe_key/abe_sk", std::ios::in);
+	std::ifstream abe_secertkey(sk_path, std::ios::in);
 	if (!abe_secertkey)
 	{
 		std::cout << "error opening secert key-file." << std::endl;

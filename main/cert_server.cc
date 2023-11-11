@@ -52,7 +52,9 @@ static void* thread_certgenerate(void *arg){
 	SSL_ReadAll(ssl, dataStr, dataLen + 1);
 	
 	// 创建证书
-    X509 *cert = cert_from_str(bio_req, dataStr, KMS_key);
+	bio_req = BIO_new(BIO_s_mem());
+    BIO_puts(bio_req, dataStr);
+    X509 *cert = cert_from_str(bio_req, KMS_key);
 	SSL_cert_Write(ssl, cert);
 
 	X509_free(cert);

@@ -170,7 +170,7 @@ void SSL_Json_Get(SSL *ssl, std::string &uuid, std::string &username, std::strin
                   std::string &sign_type, std::string &user_sign, int &code)
 {
     // begin json transportion
-    char json_len_hex[5];
+    char json_len_hex[5] = {0};
     SSL_ReadAll(ssl, (char *)json_len_hex, sizeof(json_len_hex) - 1);
     int json_len = std::stoi((const char *)json_len_hex, 0, 16);
     std::cout << "接收到请求包长度:" << json_len << std::endl;
@@ -208,11 +208,12 @@ void SSL_Json_Get(SSL *ssl, std::string &uuid, std::string &username, std::strin
     }
     key = cJSON_GetObjectItem(request, "dbSignatureType"); // 提取签名类型
     sign_type.assign(key->valuestring);
+    cJSON_Delete(request);
 }
 
 void SSL_Json_Write(SSL *ssl, char *json_str)
 {
-    char json_len_hex[5];
+    char json_len_hex[5] = {0};
     sprintf((char *)json_len_hex, "%04x", int(strlen(json_str)));
     SSL_WriteAll(ssl, (char *)json_len_hex, sizeof(json_len_hex) - 1);
     SSL_WriteAll(ssl, json_str, strlen(json_str));
@@ -260,6 +261,7 @@ void SSL_response_ok(SSL *ssl, std::string uuid, const char *msg, const std::str
     SSL_Json_Write(ssl, json_str);
     free(json_str);
     data = NULL;
+    cJSON_Delete(response);
 }
 
 void SSL_Shut(SSL *ssl, BIO *bio_req, char *dataStr, X509_REQ *req, SSL_CTX *ctx)
@@ -398,6 +400,7 @@ X509 *cert_Gen(X509_REQ *req_new, EVP_PKEY *KMS_key)
     // 签名证书
     if (!X509_sign(cert, KMS_key, EVP_sha512()))
     {
+        X509_free(cert);
         fprintf(stderr, "无法签名证书\n");
         return NULL;
     }
@@ -456,11 +459,8 @@ void cert_Save(X509 *cert, const char *pwd)
     fclose(certFile);
 }
 
-X509 *cert_from_str(BIO *bio_req, char *dataStr, EVP_PKEY *KMS_key)
+X509 *cert_from_str(BIO *bio_req, EVP_PKEY *KMS_key)
 {
-
-    bio_req = BIO_new(BIO_s_mem());
-    BIO_puts(bio_req, dataStr);
     X509_REQ *req_new = PEM_read_bio_X509_REQ(bio_req, NULL, NULL, NULL);
     if (req_new == NULL)
     {
@@ -506,7 +506,7 @@ void SSL_cert_Write(SSL *ssl, X509 *cert)
     sprintf(DataString_new, "%.*s", int(certSize), certStr);
     printf("证书字符串：\n%s\n", DataString_new);
 
-    char crt_len[5];
+    char crt_len[5] = {0};
     sprintf((char *)crt_len, "%04x", int(certSize));
     SSL_WriteAll(ssl, crt_len, sizeof(crt_len) - 1);
     SSL_WriteAll(ssl, DataString_new, certSize + 1);

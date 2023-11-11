@@ -1,8 +1,7 @@
-./bin
-./obj
-./.vscode
-./cert.md
-./cert_*
-./*.pem
-./Keymanager
-./Database
+**/*.o
+bin
+obj
+cert_client
+cert_server
+Database
+Keymanager

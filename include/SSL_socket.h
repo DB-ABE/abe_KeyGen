@@ -51,7 +51,7 @@ X509 *cert_Gen(X509_REQ *req_new, EVP_PKEY *KMS_key);
 
 void cert_Save(X509 *cert, const char *pwd = "./cert/user/");
 
-X509 *cert_from_str(BIO *bio_req, char *dataStr, EVP_PKEY *KMS_key);
+X509 *cert_from_str(BIO *bio_req, EVP_PKEY *KMS_key);
 
 void SSL_cert_Write(SSL *ssl, X509 *cert);
 

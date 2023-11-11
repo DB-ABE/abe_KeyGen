@@ -1,14 +1,5 @@
 #include "rsa_Crypto.h"
 
-// 初始化SHA，输入长度不限，输出为SHA_length长度
-SHA_CTX SHA_init(std::string strData)
-{
-    SHA_CTX ctx;
-    SHA1_Init(&ctx);
-    SHA1_Update(&ctx, strData.c_str(), strlen(strData.c_str()));
-    std::cout << "消息长度:" << strlen(strData.c_str()) << std::endl;
-    return ctx;
-}
 
 // 加密
 std::string RSA_Encrypt(const std::string strPemFileName, const std::string strData)
@@ -16,14 +7,14 @@ std::string RSA_Encrypt(const std::string strPemFileName, const std::string strD
     // 检测输入是否合法
     if (strPemFileName.empty() || strData.empty())
     {
-        assert(false);
+        //assert(false);
         return "";
     }
     // 打开rsa密钥文件
     FILE *hPubKeyFile = fopen(strPemFileName.c_str(), "rb");
     if (hPubKeyFile == NULL)
     {
-        assert(false);
+        //assert(false);
         return "";
     }
 
@@ -106,20 +97,20 @@ int RSA_Sign(const std::string strPemFileName, std::string strData,
     // 检查输入是否合法
     if (strPemFileName.empty() || strData.empty())
     {
-        assert(false);
+        //assert(false);
         return -1;
     }
     // 读取rsa私钥文件，导入私钥
     FILE *hPriKeyFile = fopen(strPemFileName.c_str(), "rb");
     if (hPriKeyFile == NULL)
     {
-        assert(false);
+        //assert(false);
         return -1;
     }
     RSA *pRSAPriKey = RSA_new();
     if (PEM_read_RSAPrivateKey(hPriKeyFile, &pRSAPriKey, 0, 0) == NULL)
     {
-        assert(false);
+        //assert(false);
         return -1;
     }
     int flag = 1; // 记录签名的情况，1表示正常，0表示异常
@@ -157,21 +148,21 @@ std::string RSA_Decrypt(const std::string strPemFileName, const std::string strD
     // 检查输入是否合法
     if (strPemFileName.empty() || strData.empty())
     {
-        assert(false);
+        //assert(false);
         return "";
     }
     // 导入rsa密钥文件并读取密钥
     FILE *hPriKeyFile = fopen(strPemFileName.c_str(), "rb");
     if (hPriKeyFile == NULL)
     {
-        assert(false);
+        //assert(false);
         return "";
     }
     std::string strRet;
     RSA *pRSAPriKey = RSA_new();
     if (PEM_read_RSAPrivateKey(hPriKeyFile, &pRSAPriKey, 0, 0) == NULL)
     { // 密钥读取失败
-        assert(false);
+        //assert(false);
         return "";
     }
     // 获取密钥长度
@@ -193,7 +184,6 @@ std::string RSA_Decrypt(const std::string strPemFileName, const std::string strD
     }
     else
     { // 多个分组
-        int flag = 1;
         for (int i = 0; i < (int)strData.length() / (int)RSA_Decrypt_length; i++)
         {
             std::string Data = strData.substr(i * RSA_Decrypt_length, RSA_Decrypt_length);
@@ -206,23 +196,7 @@ std::string RSA_Decrypt(const std::string strPemFileName, const std::string strD
             else
             { // 解密失败
                 strRet = "";
-                flag = 0;
                 break;
-            }
-        }
-        if (strData.length() % RSA_Decrypt_length != 0 && flag)
-        {
-            std::string Data = strData.substr((strData.length() / RSA_Decrypt_length) * RSA_Decrypt_length,
-                                              strData.length() % strData.length());
-            int ret = RSA_private_decrypt(Data.length(), (const unsigned char *)Data.c_str(),
-                                          (unsigned char *)pDecode, pRSAPriKey, RSA_PKCS1_PADDING);
-            if (ret >= 0)
-            {
-                strRet += std::string(pDecode, ret);
-            }
-            else
-            {
-                strRet = "";
             }
         }
     }
@@ -241,14 +215,14 @@ bool RSA_Verify(const std::string strPemFileName, const std::string strData,
     // 检验输入合法性
     if (strPemFileName.empty() || strData.empty())
     {
-        assert(false);
+        //assert(false);
         return 0;
     }
     // 导入证书文件并读取公钥
     FILE *hPubKeyFile = fopen(strPemFileName.c_str(), "rb");
     if (hPubKeyFile == NULL)
     {
-        assert(false);
+        //assert(false);
         return 0;
     }
     X509 *cert = PEM_read_X509(hPubKeyFile, nullptr, nullptr, nullptr);

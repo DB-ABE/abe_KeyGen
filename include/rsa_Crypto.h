@@ -14,7 +14,6 @@
 #define RSA_Decrypt_length 256
 
 // 初始化SHA，输入长度不限，输出为SHA_length长度
-SHA_CTX SHA_init(std::string strData);
 // 加密，输入长度不限
 std::string RSA_Encrypt(const std::string strPemFileName, const std::string strData);
 // 签名 use private key，输入长度不限

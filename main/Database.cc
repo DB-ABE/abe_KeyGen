@@ -223,23 +223,6 @@ int mysql_generateABEKey(string username, string attibute)
             cout << "验证abe签名成功" << endl;
             free(base64String);
             base64String = NULL;
-
-            // {   
-            //     for(int i = 0; i < abe_cipher.length(); i++)printf("%02x", abe_cipher[i]);
-            //     puts("");
-            //     abe_user user;
-            //     user.user_key = RSA_Decrypt("tmp/client.pem", abe_cipher);
-            //     user.user_id = username;
-            //     user.user_attr = attibute;
-            //     string ct;
-            //     oabe::InitializeOpenABE();
-            //     oabe::OpenABECryptoContext cpabe("CP-ABE");
-            //     abe_init(cpabe);
-            //     abe_KeyGen(cpabe, user);
-            //     abe_Encrypt(cpabe, "test", "attr1", ct);
-            //     abe_Decrypt(cpabe, ct, user, ct);
-            //     oabe::ShutdownOpenABE();
-            // }
             
         }
     }
@@ -295,7 +278,7 @@ int main()
     //  }
 
     //mysql_generateABEKey("client", "|attr1|attr2|attr3 = 3|Date1 = March 20, 2022|Date2 = March 20, 2023|Date3 = March 20, 2022");
-    mysql_generateABEKey("DB", "|attr1");
+    mysql_generateABEKey("zhangsan", "|attr1");
 
     // exit:
     //     if(conn)mysql_close(conn);
