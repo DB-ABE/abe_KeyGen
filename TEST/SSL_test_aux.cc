@@ -74,7 +74,6 @@ void test(int sock){
 
 int main(){
 	int listen_sock;
-    int port = 23119;
 	int listen_max = 10;  // max listen number
 	sockaddr_in sockaddr; // 定义IP地址结构
 	int on = 1;

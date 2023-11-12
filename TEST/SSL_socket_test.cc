@@ -27,7 +27,7 @@ int sock_init(){
     sa.sin_family      = AF_INET;
     sa.sin_addr.s_addr = inet_addr("127.0.0.1");   /* Server IP */
     sa.sin_port        = htons(20005);          /* Server Port number */
-    int confd = connect(sd, (struct sockaddr*)&sa, sizeof(sa));
+    connect(sd, (struct sockaddr*)&sa, sizeof(sa));
 	puts("可以继续");
 	return sd;
 }
@@ -52,7 +52,6 @@ TEST_F(SSL_Test, ssl){
 	std::string KMS_cert = getConfigString(config, "KMS_cert");
 	std::string verify_key = getConfigString(config, "DB_cert");
 	std::string user_cert_pwd = getConfigString(config, "user_cert_pwd");
-	int PORT = getConfigInt(config, "PORT");
 	SSL_CTX *ctx = cert_SSL_Init("", "", NULL, 0);
 	if(ctx == NULL) EXPECT_ret = 1;
 	EXPECT_EQ(0, EXPECT_ret);
@@ -128,8 +127,7 @@ TEST_F(SSL_Test, ssl){
 	cert = cert_Gen(req, key);
 	if(cert) EXPECT_ret = 0;
 	EXPECT_EQ(0, EXPECT_ret);
-	cert_Save(cert, "./nofile");
-	cert_Save(cert, "./tmp");
+	cert_Save(cert, "./tmp/");
 	SSL_cert_Write(ssl, cert);
 	X509_free(cert);
 	EVP_PKEY_free(key);

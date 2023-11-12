@@ -32,9 +32,14 @@ TEST_F(Config_Test, load_get)
     test = getConfigString(config, "");
     EXPECT_STREQ("-1", test.c_str());
     test = getConfigString(config, "KMS_cert");
-    EXPECT_STREQ("-1", test.c_str());
+    EXPECT_STRNE("-1", test.c_str());
     t = getConfigInt(config, "");
     EXPECT_EQ(-1, t);
     t = getConfigInt(config, "PORT");
     EXPECT_NE(-1, t);
+}
+
+int main(int argc, char** argv){
+	testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
 }
