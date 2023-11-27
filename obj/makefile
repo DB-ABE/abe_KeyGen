@@ -8,7 +8,7 @@ src=$(wildcard ./src/*.o)
 
 all:$(main) $(TEST)
 $(main):
-	$(CC) -o $(BIN_DIR)/$@ ./main/$@.o $(src) $(LIBS)
+	$(CC) -o $(BIN_DIR)/$@ ./main/$@.o $(src) $(LIBS) -lgtest -lgcov
 $(TEST):
 	$(CC) -o $(TEST_DIR)/bin/$@ ./TEST/$@.o $(src) $(LIBS) -lgtest -lgcov
 # all:

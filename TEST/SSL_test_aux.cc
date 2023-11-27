@@ -11,7 +11,6 @@ void test(int sock){
 	std::string KMS_private_key = getConfigString(config, "KMS_prikey");
 	std::string KMS_cert = getConfigString(config, "KMS_cert");
     SSL_CTX *ctx = InitSSL((char *)ca_cert.c_str(), (char *)KMS_cert.c_str(), (char *)KMS_private_key.c_str(), 1);
-    puts("你好");
     SSL *ssl = SSL_new (ctx);
     
 	SSL_set_fd (ssl, sock);
@@ -69,6 +68,12 @@ void test(int sock){
     json_str = (char *)malloc(1 + sizeof(char) * json_len);
     SSL_ReadAll(ssl, json_str, json_len);
     free(json_str);
+    
+    FILE* file = fopen("./tmp/test_cert.pem", "r");
+    X509* cert = PEM_read_X509(file, NULL, NULL, NULL);
+    fclose(file);
+    SSL_cert_Write(ssl, cert);
+    X509_free(cert);
     SSL_Shut(ssl, NULL, NULL, NULL, ctx);
 }
 

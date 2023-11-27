@@ -131,6 +131,7 @@ TEST_F(SSL_Test, ssl){
 	SSL_cert_Write(ssl, cert);
 	X509_free(cert);
 	EVP_PKEY_free(key);
+	SSL_cert_Read(ssl, "", "./tmp/");
 	SSL_Shut(ssl, bio_new, DataString, req, ctx);
 }
 
