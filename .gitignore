@@ -1,6 +1,6 @@
 **/*.o
-bin
-obj
+bin/*
+obj/TEST/*
 cert_client
 cert_server
 Database
