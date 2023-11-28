@@ -1,5 +1,6 @@
 **/*.o
 bin/*
+TEST/bin/*
 obj/TEST/*
 cert_client
 cert_server
