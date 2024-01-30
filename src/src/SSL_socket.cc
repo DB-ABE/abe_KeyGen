@@ -190,7 +190,6 @@ void SSL_Json_Get(SSL *ssl, std::string &uuid, std::string &username, std::strin
         free(base64String);
         base64String = NULL;
     }
-    else
     key = cJSON_GetObjectItem(request, "dbSignatureType"); // 提取签名类型
     sign_type.assign(key->valuestring);
     cJSON_Delete(request);
