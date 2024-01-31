@@ -1,12 +1,12 @@
-//#include <gmock/gmock.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
-
+#include "gmock-global.h"
 #include "SSL_socket.h"
 #include "Config.h"
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
-
+using namespace testing;
 class SSL_Test : public testing::Test { // 继承了 testing::Test
 protected:  
 	static void SetUpTestSuite() {
@@ -35,7 +35,7 @@ int sock_init(){
 TEST_F(SSL_Test, base64)
 {
 	const char *base_string = "test";
-	int base_length;
+	int base_length = -1;
 	char *base64String_encode = base64Encode((const unsigned char *)base_string, strlen(base_string));
 	char *base64String_decode = (char *)base64Decode(base64String_encode, strlen(base64String_encode), &base_length);
 	EXPECT_GT(base_length, 0);
@@ -54,29 +54,41 @@ TEST_F(SSL_Test, ssl){
 	std::string user_cert_pwd = getConfigString(config, "user_cert_pwd");
 	SSL_CTX *ctx = cert_SSL_Init("", "", NULL, 0);
 	if(ctx == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(0, EXPECT_ret);
 	SSL_CTX_free(ctx);
 	ctx = cert_SSL_Init("", "", NULL, 1);
 	if(ctx == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(1, EXPECT_ret);
 	ctx = cert_SSL_Init(KMS_cert.c_str(), "", NULL, 1);
 	if(ctx == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
+	EXPECT_EQ(1, EXPECT_ret);
+	ctx = cert_SSL_Init(KMS_cert.c_str(), "/tmp/DB_prikey.pem", NULL, 1);
+	if(ctx == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(1, EXPECT_ret);
 	ctx = cert_SSL_Init(KMS_cert.c_str(), KMS_private_key.c_str());
 	if(ctx) EXPECT_ret = 0;
+	else EXPECT_ret = 1;
 	EXPECT_EQ(0, EXPECT_ret);
 	SSL_CTX_free(ctx);
 	ctx = InitSSL((char *)ca_cert.c_str(), (char *)"",(char *)"", 1);
 	if(ctx == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(1, EXPECT_ret);
 	ctx = InitSSL((char *)ca_cert.c_str(), (char *)KMS_cert.c_str(), (char *)"", 0);
 	if(ctx == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(1, EXPECT_ret);
 	ctx = InitSSL((char *)ca_cert.c_str(), (char *)KMS_cert.c_str(), (char *)"/tmp/DB_prikey.pem", 0);
 	if(ctx == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(1, EXPECT_ret);
 	ctx = InitSSL((char *)ca_cert.c_str(), (char *)KMS_cert.c_str(), (char *)KMS_private_key.c_str(), 0);
 	if(ctx) EXPECT_ret = 0;
+	else EXPECT_ret = 1;
 	EXPECT_EQ(0, EXPECT_ret);
 	EXPECT_FALSE(check_cert(""));
 	EXPECT_TRUE(check_cert("./cert/CA/CA_cert.pem"));
@@ -85,7 +97,6 @@ TEST_F(SSL_Test, ssl){
 	SSL_set_fd (ssl, sd);
 	SSL_connect(ssl); 
 	show_SSL(ssl);
-	
 	std::string uuid, sign_type, user_sign, username, attibute, cipher;
 	int request_code;
 	SSL_Json_Get(ssl, uuid, username, attibute, sign_type, user_sign, request_code);
@@ -96,7 +107,9 @@ TEST_F(SSL_Test, ssl){
 	
 	EVP_PKEY *key = SSL_PKEY_Read("");
 	if(key == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(1, EXPECT_ret);
+
 	key = SSL_PKEY_Read("./prikey/KMS/KMS_prikey.pem");
 	if(key != NULL) EXPECT_ret = 0;
 	EXPECT_EQ(0, EXPECT_ret);
@@ -104,8 +117,6 @@ TEST_F(SSL_Test, ssl){
 	RSA_free(rsa);
 	rsa = generate_prikey(65537, 2048, "test");
 	X509_REQ *req = X509_REQ_new();
-	// EXPECT_FALSE(info_csr_Set(req, NULL, "test", "test", "test"));
-	// rsa = generate_prikey(65537, 2048, "test");
 	EXPECT_TRUE(info_csr_Set(req, rsa, "test", "test", "test"));
 	EXPECT_TRUE(SSL_csr_Write(ssl, req));
 	BIO *bio = BIO_new(BIO_s_mem());
@@ -118,14 +129,17 @@ TEST_F(SSL_Test, ssl){
     BIO_puts(bio_new, DataString);
 	X509 *cert = cert_from_str(bio_new, key);
 	if(cert) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(1, EXPECT_ret);
 	BIO_free(bio);
 	X509_free(cert);
 	cert = cert_Gen(req, NULL);
 	if(cert == NULL) EXPECT_ret = 1;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(1, EXPECT_ret);
 	cert = cert_Gen(req, key);
 	if(cert) EXPECT_ret = 0;
+	else EXPECT_ret = 0;
 	EXPECT_EQ(0, EXPECT_ret);
 	cert_Save(cert, "./tmp/");
 	SSL_cert_Write(ssl, cert);

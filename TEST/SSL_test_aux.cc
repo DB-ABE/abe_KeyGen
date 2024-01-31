@@ -91,12 +91,10 @@ int main(){
 
 	listen(listen_sock, listen_max); //     服务端开始监听
 
-    while(1){
-        sockaddr_in accept_sockaddr; // 定义accept IP地址结构
-        socklen_t addrlen = sizeof(accept_sockaddr);
-        memset(&accept_sockaddr, 0, addrlen);
-        int accept_st = accept(listen_sock, (struct sockaddr *)&accept_sockaddr, &addrlen);
-        test(accept_st);
-    }
+    sockaddr_in accept_sockaddr; // 定义accept IP地址结构
+    socklen_t addrlen = sizeof(accept_sockaddr);
+    memset(&accept_sockaddr, 0, addrlen);
+    int accept_st = accept(listen_sock, (struct sockaddr *)&accept_sockaddr, &addrlen);
+    test(accept_st);
     return 0;
 }

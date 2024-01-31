@@ -19,12 +19,6 @@ char *base64Encode(const unsigned char *input, int length)
     long base64Length = BIO_get_mem_data(bmem, &base64Data);
 
     char *base64String = (char *)malloc(base64Length + 1);
-    if (base64String == NULL)
-    {
-        perror("内存分配失败");
-        BIO_free_all(bio);
-        return NULL;
-    }
 
     memcpy(base64String, base64Data, base64Length);
     base64String[base64Length] = '\0';
@@ -42,12 +36,6 @@ unsigned char *base64Decode(const char *input, int length, int *outputLength)
     BIO_set_flags(bio, BIO_FLAGS_BASE64_NO_NL);
 
     unsigned char *output = (unsigned char *)malloc(length + 1);
-    if (output == NULL)
-    {
-        perror("内存分配失败");
-        BIO_free_all(bio);
-        return NULL;
-    }
 
     *outputLength = BIO_read(bio, output, length);
     BIO_free_all(bio);
@@ -196,11 +184,7 @@ void SSL_Json_Get(SSL *ssl, std::string &uuid, std::string &username, std::strin
 
     int ret = 0;
     char *base64String = (char *)base64Decode(key->valuestring, strlen(key->valuestring), &ret);
-    if (base64String == NULL)
-    {
-        std::cout << "签名base解码失败" << std::endl;
-    }
-    else
+    if (base64String)
     {
         user_sign.assign(base64String, ret);
         free(base64String);
@@ -295,11 +279,6 @@ EVP_PKEY *SSL_PKEY_Read(const char *key_path)
     }
     Key = PEM_read_PrivateKey(caKeyFile, NULL, NULL, NULL);
     fclose(caKeyFile);
-    if (!Key)
-    {
-        fprintf(stderr, "无法读取 KMS 的私钥\n");
-        return NULL;
-    }
     return Key;
 }
 
@@ -320,11 +299,6 @@ SSL_CTX *cert_SSL_Init(const char *server_cert_path, const char *server_key_path
         meth = (SSL_METHOD *)TLS_client_method();
     /* 创建SSL会话环境 */
     ctx = SSL_CTX_new(meth);
-    if (ctx == NULL)
-    {
-        printf("SSL_CTX_new error\n");
-        return NULL;
-    }
 
     if (C_S_flag)
     {
@@ -369,11 +343,6 @@ SSL_CTX *cert_SSL_Init(const char *server_cert_path, const char *server_key_path
 X509 *cert_Gen(X509_REQ *req_new, EVP_PKEY *KMS_key)
 {
     X509 *cert = X509_new();
-    if (!cert)
-    {
-        fprintf(stderr, "无法创建证书对象\n");
-        return NULL;
-    }
 
     // 设置证书版本号
     X509_set_version(cert, 2); // 版本号为2代表X.509 v3
@@ -417,45 +386,15 @@ void cert_Save(X509 *cert, const char *pwd)
     X509_NAME *subject = X509_get_subject_name(cert);
     // 查找 Common Name (CN) 字段
     int cnIndex = X509_NAME_get_index_by_NID(subject, NID_commonName, -1);
-    if (cnIndex < 0)
-    {
-        X509_NAME_free(subject);
-        // 处理未找到 CN 字段的情况
-        printf("error: 未在证书中找到 CN 字段\n");
-    }
-
     // 获取 CN 字段的值
     entry = X509_NAME_get_entry(subject, cnIndex);
     cnData = X509_NAME_ENTRY_get_data(entry);
-
-    if (cnData == NULL)
-    {
-        X509_NAME_ENTRY_free(entry);
-        // 处理获取 CN 值失败的情况
-        printf("error: 获取证书中 CN 字段失败\n");
-    }
     // 将 CN 字段的值转换为 C 字符串
     cnStr = (char *)ASN1_STRING_get0_data(cnData);
-    if (cnStr == NULL)
-    {
-        ASN1_STRING_free(cnData);
-        // 处理转换失败的情况
-        printf("error: 获取证书中 CN 字段转换字符串失败\n");
-    }
     // 将证书保存到文件
     certFile = fopen((pwd + std::string(cnStr) + "_cert.pem").c_str(), "wb");
 
-    if (!certFile)
-    {
-        fprintf(stderr, "error: 无法打开证书文件\n");
-    }
-
-    if (PEM_write_X509(certFile, cert) != 1)
-    {
-        // 处理写入失败的情况
-        fprintf(stderr, "error: 证书文件写入失败\n");
-        fclose(certFile);
-    }
+    PEM_write_X509(certFile, cert);
     fclose(certFile);
 }
 
@@ -484,23 +423,14 @@ void SSL_cert_Write(SSL *ssl, X509 *cert)
 {
     // 将证书转换为字符串
     BIO *bio_cert = BIO_new(BIO_s_mem());
-    if (bio_cert == NULL)
-    {
-        perror("error: 证书传输 BIO 对象创建失败");
-    }
 
-    if (!PEM_write_bio_X509(bio_cert, cert))
-    {
-        perror("error: 证书传输 证书转换为字符串失败");
-        BIO_free(bio_cert);
-        bio_cert = NULL;
-    }
+    PEM_write_bio_X509(bio_cert, cert);
 
     char *certStr;
     long certSize = BIO_get_mem_data(bio_cert, &certStr);
     if (certSize <= 0)
     {
-        perror("error: 证书传输 无效的证书字符串");
+        printf("error: 证书传输 无效的证书字符串");
     }
     char *DataString_new = (char *)malloc(1 + sizeof(char) * certSize);
     sprintf(DataString_new, "%.*s", int(certSize), certStr);
@@ -520,18 +450,9 @@ RSA *generate_prikey(unsigned long word, int bits, const char *Common_Name, cons
 {
     BIGNUM *bne = BN_new();
     ;
-    int ret = BN_set_word(bne, 65537);
-    if (ret != 1)
-    {
-        return NULL;
-    }
+    BN_set_word(bne, 65537);
     RSA *rsa = RSA_new();
-    ret = RSA_generate_key_ex(rsa, 2048, bne, NULL);
-    if (ret != 1)
-    {
-        BN_free(bne);
-        return NULL;
-    }
+    RSA_generate_key_ex(rsa, 2048, bne, NULL);
     if (Common_Name)
     {
         FILE *file = fopen((pwd + std::string(Common_Name) + "_prikey.pem").c_str(), "w");
@@ -561,12 +482,7 @@ bool info_csr_Set(X509_REQ *req, RSA *rsa, const char *country,
     X509_REQ_set_pubkey(req, pkey);
 
     // 签名证书请求
-    if (!X509_REQ_sign(req, pkey, EVP_sha512()))
-    {
-        perror("证书请求签名失败");
-        EVP_PKEY_free(pkey);
-        return false;
-    }
+    X509_REQ_sign(req, pkey, EVP_sha512());
     EVP_PKEY_free(pkey);
     return true;
 }
@@ -575,24 +491,12 @@ bool SSL_csr_Write(SSL *ssl, X509_REQ *req)
 {
     // 导出为字符类型
     BIO *bio = BIO_new(BIO_s_mem());
-    if (!bio) {
-        fprintf(stderr, "无法创建BIO对象\n");
-        return false;
-    }
 
-    if (PEM_write_bio_X509_REQ(bio, req) == 0) {
-        fprintf(stderr, "无法导出证书请求\n");
-        BIO_free(bio);
-        return false;
-    }
+    PEM_write_bio_X509_REQ(bio, req);
+
 
     char *csrData;
     long csrDataLen = BIO_get_mem_data(bio, &csrData);
-    if (csrDataLen <= 0) {
-        fprintf(stderr, "无法获取导出的证书请求数据\n");
-        BIO_free(bio);
-        return false;
-    }
     
     char *DataString = (char *) malloc(1 + sizeof(char) * csrDataLen);
     sprintf(DataString, "%.*s", int(csrDataLen), csrData);
@@ -617,30 +521,18 @@ bool SSL_cert_Read(SSL *ssl, const char *Common_Name, const char *cert_pwd)
     int dataLen = std::stoi((const char*)crt_len, 0, 16);
     char *dataStr = (char *)malloc(1 + sizeof(char) * dataLen);
     SSL_ReadAll(ssl, dataStr, dataLen + 1);
+    dataStr[dataLen] = '\0';
     printf("证书字符串:%s\n", dataStr);
     BIO* bio_certString = BIO_new_mem_buf(dataStr, -1);
-    if (bio_certString == NULL) {
-        // 处理加载失败的情况
-        free(dataStr);
-        return false;
-    }
     
     // 从内存中读取 X.509 证书
     X509 *cert_new = PEM_read_bio_X509(bio_certString, NULL, NULL, NULL);
     // 释放 BIO 对象
     free(dataStr);
     BIO_free(bio_certString);
-    if(!cert_new){
-        return false;
-    }
-    if (cert_new == NULL) {
-        // 处理读取失败的情况
-        printf("证书生成失败,程序退出\n");
-        return false;
-    }
     cert_Save(cert_new, cert_pwd);
     // 清理证书对象
     X509_free(cert_new);
-    printf("证书生成成功,程序退出");
+    printf("证书生成成功,程序退出\n");
     return true;
 }

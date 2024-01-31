@@ -3,7 +3,6 @@
 
 #include "abe_Crypto.h"
 
-
 class abe_Test : public testing::Test { // 继承了 testing::Test
 protected:  
 	static void SetUpTestSuite() {

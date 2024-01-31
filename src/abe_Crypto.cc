@@ -47,18 +47,8 @@ int abe_generate(oabe::OpenABECryptoContext &cpabe)
 	std::string abe_pp, abe_sk;
 	// 创建密钥和公共参数文件
 	std::ofstream abe_securitykey("./abe_key/abe_sk", std::ios::out);
-	if (!abe_securitykey)
-	{
-		std::cout << "error opening security key-file." << std::endl;
-		return -1;
-	}
 
 	std::ofstream abe_publickey("./abe_key/abe_pp", std::ios::out);
-	if (!abe_publickey)
-	{
-		std::cout << "error opening public key-file." << std::endl;
-		return -1;
-	}
 
 	// 导入公共参数
 	cpabe.generateParams();
@@ -93,7 +83,6 @@ int abe_init(oabe::OpenABECryptoContext &cpabe)
 		int msk_flag = abe_import_msk(cpabe);
 		if (pp_flag == 1 && msk_flag == 1)
 			return 0;
-		return -1;
 	}
 	else
 		std::cout << "generate abe parameters" << std::endl;

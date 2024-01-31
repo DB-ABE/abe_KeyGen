@@ -8,9 +8,9 @@ src=$(wildcard ./src/*.o)
 
 all:$(main) $(TEST)
 $(main):
-	$(CC) -o $(BIN_DIR)/$@ ./main/$@.o $(src) $(LIBS) -lgtest -lgcov
+	$(CC) -o $(BIN_DIR)/$@ ./main/$@.o $(src) $(LIBS) -lgtest -lgcov -lgmock -lgtest_main -lgmock_main
 $(TEST):
-	$(CC) -o $(TEST_DIR)/bin/$@ ./TEST/$@.o $(src) $(LIBS) -lgtest -lgcov
+	$(CC) -o $(TEST_DIR)/bin/$@ ./TEST/$@.o $(src) -L$(LIB_DIR) $(LIBS) -lgtest -lgcov -lgmock -lgtest_main -lgmock_main
 # all:
 # 	$(CC) -o $(BIN_DIR)/Keymanager ./main/Keymanager.o $(src) $(LIBS)
 # 	$(CC) -o $(BIN_DIR)/Database ./main/Database.o $(src) $(LIBS)

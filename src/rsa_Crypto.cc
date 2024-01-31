@@ -1,6 +1,5 @@
 #include "rsa_Crypto.h"
 
-
 // 加密
 std::string RSA_Encrypt(const std::string strPemFileName, const std::string strData)
 {
@@ -35,14 +34,14 @@ std::string RSA_Encrypt(const std::string strPemFileName, const std::string strD
     { // 如果长度小于一个分组
         int ret = RSA_public_encrypt(strData.length(), (const unsigned char *)strData.c_str(),
                                      (unsigned char *)pEncode, pRSAPublicKey, RSA_PKCS1_PADDING);
-        if (ret >= 0)
+        if (ret > 0)
         {
             strRet = std::string(pEncode, ret);
         }
-        else
-        {
-            strRet = "";
-        }
+        // else
+        // {
+        //     strRet = "";
+        // }
     }
     else
     { // 如果长度大于一个分组
@@ -52,16 +51,16 @@ std::string RSA_Encrypt(const std::string strPemFileName, const std::string strD
             std::string Data = strData.substr(i * RSA_Encrypt_length, RSA_Encrypt_length); // 一个分组
             int ret = RSA_public_encrypt(Data.length(), (const unsigned char *)Data.c_str(),
                                          (unsigned char *)pEncode, pRSAPublicKey, RSA_PKCS1_PADDING);
-            if (ret >= 0)
+            if (ret > 0)
             {
                 strRet += std::string(pEncode, ret);
             }
-            else
-            { // 加密失败，密文重置为""，跳出循环
-                strRet = "";
-                flag = 0;
-                break;
-            }
+            // else
+            // { // 加密失败，密文重置为""，跳出循环
+            //     strRet = "";
+            //     flag = 0;
+            //     break;
+            // }
         }
 
         if (strData.length() % RSA_Encrypt_length != 0 && flag)
@@ -70,14 +69,14 @@ std::string RSA_Encrypt(const std::string strPemFileName, const std::string strD
                                               strData.length() % RSA_Encrypt_length); // 最后一段
             int ret = RSA_public_encrypt(Data.length(), (const unsigned char *)Data.c_str(),
                                          (unsigned char *)pEncode, pRSAPublicKey, RSA_PKCS1_PADDING);
-            if (ret >= 0)
+            if (ret > 0)
             {
                 strRet += std::string(pEncode, ret);
             }
-            else
-            { // 加密失败, 密文重置为"";
-                strRet = "";
-            }
+            // else
+            // { // 加密失败, 密文重置为"";
+            //     strRet = "";
+            // }
         }
     }
     // 释放资源
@@ -108,11 +107,7 @@ int RSA_Sign(const std::string strPemFileName, std::string strData,
         return -1;
     }
     RSA *pRSAPriKey = RSA_new();
-    if (PEM_read_RSAPrivateKey(hPriKeyFile, &pRSAPriKey, 0, 0) == NULL)
-    {
-        //assert(false);
-        return -1;
-    }
+    PEM_read_RSAPrivateKey(hPriKeyFile, &pRSAPriKey, 0, 0);
     int flag = 1; // 记录签名的情况，1表示正常，0表示异常
     // 获取密钥长度
     int nLen = RSA_size(pRSAPriKey);
@@ -125,16 +120,16 @@ int RSA_Sign(const std::string strPemFileName, std::string strData,
     // 进行签名
     int ret = RSA_sign(NID_SHA, (const unsigned char *)digest, SHA_length,
                        pEncode, &outlen, pRSAPriKey);
-    if (ret >= 0)
+    if (ret > 0)
     { // 签名成功
         std::cout << "singed successfully!" << std::endl;
         std::cout << "critical length:" << outlen << std::endl;
     }
-    if (ret != 1)
-    { // 签名失败
-        std::cout << "sign failed\n";
-        flag = 0;
-    }
+    // else
+    // { // 签名失败
+    //     std::cout << "sign failed\n";
+    //     flag = 0;
+    // }
     // 释放资源
     RSA_free(pRSAPriKey);
     fclose(hPriKeyFile);
@@ -160,11 +155,7 @@ std::string RSA_Decrypt(const std::string strPemFileName, const std::string strD
     }
     std::string strRet;
     RSA *pRSAPriKey = RSA_new();
-    if (PEM_read_RSAPrivateKey(hPriKeyFile, &pRSAPriKey, 0, 0) == NULL)
-    { // 密钥读取失败
-        //assert(false);
-        return "";
-    }
+    PEM_read_RSAPrivateKey(hPriKeyFile, &pRSAPriKey, 0, 0);
     // 获取密钥长度
     int nLen = RSA_size(pRSAPriKey);
     char *pDecode = new char[nLen + 1];
@@ -173,7 +164,7 @@ std::string RSA_Decrypt(const std::string strPemFileName, const std::string strD
     { // 一个分组的情况
         int ret = RSA_private_decrypt(strData.length(), (const unsigned char *)strData.c_str(),
                                       (unsigned char *)pDecode, pRSAPriKey, RSA_PKCS1_PADDING);
-        if (ret >= 0)
+        if (ret > 0)
         { // 解密成功
             strRet = std::string((char *)pDecode, ret);
         }
@@ -189,7 +180,7 @@ std::string RSA_Decrypt(const std::string strPemFileName, const std::string strD
             std::string Data = strData.substr(i * RSA_Decrypt_length, RSA_Decrypt_length);
             int ret = RSA_private_decrypt(Data.length(), (const unsigned char *)Data.c_str(),
                                           (unsigned char *)pDecode, pRSAPriKey, RSA_PKCS1_PADDING);
-            if (ret >= 0)
+            if (ret > 0)
             {
                 strRet += std::string(pDecode, ret);
             }
