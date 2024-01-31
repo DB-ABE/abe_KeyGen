@@ -112,11 +112,6 @@ SSL_CTX *InitSSL(char *ca_path, char *client_crt_path,
         meth = (SSL_METHOD *)TLS_client_method();
     /* 创建SSL会话环境 */
     ctx = SSL_CTX_new(meth);
-    if (ctx == NULL)
-    {
-        printf("SSL_CTX_new error\n");
-        return NULL;
-    }
 
     // /*验证与否,是否要验证对方*/
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
@@ -142,15 +137,6 @@ SSL_CTX *InitSSL(char *ca_path, char *client_crt_path,
 
     // 设置证书私钥文件的密码
     // SSL_CTX_set_default_passwd_cb_userdata(ctx, pw);
-
-    /*调用了以上两个函数后,检验一下自己的证书与私钥是否配对*/
-    if (!SSL_CTX_check_private_key(ctx))
-    {
-        printf("SSL_CTX_check_private_key error\n");
-        if (ctx)
-            SSL_CTX_free(ctx);
-        return NULL;
-    }
     return ctx;
 }
 
@@ -323,14 +309,6 @@ SSL_CTX *cert_SSL_Init(const char *server_cert_path, const char *server_key_path
         // 设置证书私钥文件的密码
         // SSL_CTX_set_default_passwd_cb_userdata(ctx, pw);
 
-        /*调用了以上两个函数后,检验一下自己的证书与私钥是否配对*/
-        if (!SSL_CTX_check_private_key(ctx))
-        {
-            printf("SSL_CTX_check_private_key error\n");
-            if (ctx)
-                SSL_CTX_free(ctx);
-            return NULL;
-        }
         SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, NULL);
         // /*若验证对方,则放置CA证书*/
         SSL_CTX_load_verify_locations(ctx, ca_path, NULL);
@@ -401,18 +379,10 @@ void cert_Save(X509 *cert, const char *pwd)
 X509 *cert_from_str(BIO *bio_req, EVP_PKEY *KMS_key)
 {
     X509_REQ *req_new = PEM_read_bio_X509_REQ(bio_req, NULL, NULL, NULL);
-    if (req_new == NULL)
-    {
-        fprintf(stderr, "无法解析证书请求\n");
-        return NULL;
-        // 处理错误
-    }
 
     // 创建证书
     X509 *cert = cert_Gen(req_new, KMS_key);
     X509_REQ_free(req_new);
-    if (!cert)
-        return NULL;
 
     // 保存证书
     cert_Save(cert);
@@ -428,10 +398,6 @@ void SSL_cert_Write(SSL *ssl, X509 *cert)
 
     char *certStr;
     long certSize = BIO_get_mem_data(bio_cert, &certStr);
-    if (certSize <= 0)
-    {
-        printf("error: 证书传输 无效的证书字符串");
-    }
     char *DataString_new = (char *)malloc(1 + sizeof(char) * certSize);
     sprintf(DataString_new, "%.*s", int(certSize), certStr);
     printf("证书字符串：\n%s\n", DataString_new);
