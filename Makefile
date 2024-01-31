@@ -18,6 +18,7 @@ export PWD_DIR SRC_DIR OBJ_DIR MAIN_DIR LIB_DIR INC_DIR CC CFLAG LIBS BIN_DIR TE
 
 ##
 all:
+	mkdir -p bin
 	mkdir -p TEST/bin
 	mkdir -p obj/main obj/src obj/TEST
 	make -C $(SRC_DIR)
